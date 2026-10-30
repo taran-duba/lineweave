@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { Graph, Point, type Cell } from '@maxgraph/core';
 import { toCellStyle } from '@/lib/drawio/style';
 import { PALETTES, type PaletteItem } from '@/lib/graph/palette';
+import { installDarkCanvas } from '@/lib/graph/darkCanvas';
 import { applyDrawioStylesheet, registerDrawioShapes } from '@/lib/graph/shapes';
 import { PALETTE_MIME } from './Canvas';
 import { useEditor } from './hooks';
@@ -23,6 +24,8 @@ function ShapePreview({ item }: { item: PaletteItem }) {
     applyDrawioStylesheet(graph.getStylesheet());
     graph.setHtmlLabels(true);
     graph.setEnabled(false);
+    // Previews sit on the dark sidebar, so they get the same display-only swap as the canvas.
+    const uninstall = installDarkCanvas(graph);
     const w = item.width || 1;
     const h = item.edge ? w : item.height;
     const scale = Math.min((BOX - 4) / w, (BOX - 4) / h, 1);
@@ -40,7 +43,10 @@ function ShapePreview({ item }: { item: PaletteItem }) {
       }
     });
     graph.view.scaleAndTranslate(scale, (BOX / scale - w) / 2, (BOX / scale - h) / 2);
-    return () => graph.destroy();
+    return () => {
+      uninstall();
+      graph.destroy();
+    };
   }, [item]);
   return <div ref={ref} className="pointer-events-none h-10 w-10 overflow-hidden" />;
 }

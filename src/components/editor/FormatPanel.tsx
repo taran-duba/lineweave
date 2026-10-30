@@ -5,6 +5,7 @@ import type { Cell, CellStateStyle, Graph } from '@maxgraph/core';
 import { ColorInput, Field, IconButton, NumberInput, Section, Select } from '@/components/ui';
 import type { Attrs } from '@/lib/drawio/types';
 import { pagesOf } from '@/lib/drawio/ydoc';
+import { storedCellStyle } from '@/lib/graph/darkCanvas';
 import { useEditor, useGraphVersion, useYVersion } from './hooks';
 
 type StyleKey = keyof CellStateStyle;
@@ -52,7 +53,8 @@ export function FormatPanel() {
 
   const readOnly = session.readOnly;
   const first = cells[0];
-  const style = graph.getCellStyle(first) as Record<string, unknown>;
+  // Show the real colors, not the dark-canvas display swap.
+  const style = storedCellStyle(graph, first) as Record<string, unknown>;
   const vertices = cells.filter((c) => c.isVertex());
   const edges = cells.filter((c) => c.isEdge());
   const fontStyle = Number(style.fontStyle ?? 0);
@@ -62,7 +64,7 @@ export function FormatPanel() {
     if (readOnly) return;
     graph.batchUpdate(() => {
       for (const c of cells) {
-        const s = Number(graph.getCellStyle(c).fontStyle ?? 0);
+        const s = Number(storedCellStyle(graph, c).fontStyle ?? 0);
         setStyle(graph, [c], 'fontStyle', s & flag ? s & ~flag : s | flag);
       }
     });

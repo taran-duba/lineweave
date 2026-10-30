@@ -1,9 +1,14 @@
 import { ImageExport, SvgCanvas2D, type Graph } from '@maxgraph/core';
+import { withTrueColors } from './darkCanvas';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/** Renders the current page to a standalone SVG string at 100% scale. */
-export function exportSvg(graph: Graph, { border = 10, html = true, background = '#ffffff' } = {}): string {
+/** Renders the current page to a standalone SVG string at 100% scale, in its true (saved) colors. */
+export function exportSvg(graph: Graph, opts: { border?: number; html?: boolean; background?: string } = {}): string {
+  return withTrueColors(graph, () => renderSvg(graph, opts));
+}
+
+function renderSvg(graph: Graph, { border = 10, html = true, background = '#ffffff' } = {}): string {
   const view = graph.view;
   const bounds = graph.getGraphBounds();
   const s = view.scale;

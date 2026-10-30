@@ -14,6 +14,7 @@ import {
 } from '@maxgraph/core';
 import { toCellStyle } from '@/lib/drawio/style';
 import { DEFAULT_EDGE_STYLE } from './palette';
+import { installDarkCanvas } from './darkCanvas';
 import { applyDrawioStylesheet, registerDrawioShapes } from './shapes';
 
 export const MIN_SCALE = 0.1;
@@ -67,7 +68,12 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
     };
   }
 
-  const cleanups = [installGridBackground(graph), installWheelNavigation(graph), installSpacePanning(graph)];
+  const cleanups = [
+    installDarkCanvas(graph),
+    installGridBackground(graph),
+    installWheelNavigation(graph),
+    installSpacePanning(graph),
+  ];
   return {
     graph,
     destroy: () => {
