@@ -233,3 +233,84 @@ export function Section({ title, children }: { title: string; children: ReactNod
     </section>
   );
 }
+
+export interface MenuItem {
+  label: string;
+  onSelect(): void;
+  disabled?: boolean;
+  hint?: string;
+}
+
+/** A small popover menu anchored to a trigger button. Closes on outside click or Escape. */
+export function DropdownMenu({
+  trigger,
+  label,
+  items,
+  align = 'left',
+  disabled,
+}: {
+  trigger: ReactNode;
+  label: string;
+  items: MenuItem[];
+  align?: 'left' | 'right';
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={clsx(
+          'inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] hover:bg-panel-2 disabled:pointer-events-none disabled:opacity-35',
+          open && 'bg-panel-2',
+        )}
+      >
+        {trigger}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className={clsx(
+            'absolute top-9 z-50 min-w-48 overflow-hidden rounded-lg border border-border bg-panel py-1 shadow-lg',
+            align === 'right' ? 'right-0' : 'left-0',
+          )}
+        >
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              disabled={item.disabled}
+              onClick={() => {
+                setOpen(false);
+                item.onSelect();
+              }}
+              className="flex w-full items-center justify-between gap-6 px-3 py-1.5 text-left text-[13px] hover:bg-panel-2 disabled:opacity-40"
+            >
+              {item.label}
+              {item.hint && <span className="text-[12px] text-muted">{item.hint}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

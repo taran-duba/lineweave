@@ -1,7 +1,8 @@
 import { Cell, Clipboard, Geometry, Point, type Graph } from '@maxgraph/core';
 import type * as Y from 'yjs';
 import { toCellStyle } from '@/lib/drawio/style';
-import type { PaletteItem } from './palette';
+import { applyLayout, type LayoutId } from './layouts';
+import { DEFAULT_EDGE_STYLE, type PaletteItem } from './palette';
 
 export interface EditorActions {
   undo(): void;
@@ -21,7 +22,14 @@ export interface EditorActions {
   zoomReset(): void;
   fit(): void;
   insert(item: PaletteItem, at?: { x: number; y: number }): Cell | null;
+  /** draw.io's hover arrows: adds a copy of `cell` beside it and connects the two. */
+  cloneAndConnect(cell: Cell, dir: Direction): Cell | null;
+  applyLayout(id: LayoutId): void;
+  clearWaypoints(): void;
 }
+
+export type Direction = 'north' | 'south' | 'east' | 'west';
+const CLONE_GAP = 60;
 
 export function createActions(graph: Graph, undoManager: Y.UndoManager): EditorActions {
   const selection = () => graph.getSelectionCells();
@@ -83,6 +91,41 @@ export function createActions(graph: Graph, undoManager: Y.UndoManager): EditorA
       });
       graph.setSelectionCell(cell!);
       return cell!;
+    },
+    cloneAndConnect: (cell, dir) => {
+      const geo = cell.geometry;
+      if (!editable() || !geo || !cell.parent) return null;
+      let clone: Cell | null = null;
+      graph.batchUpdate(() => {
+        [clone] = graph.cloneCells([cell], false);
+        const g = clone!.geometry!;
+        if (dir === 'east') g.x += geo.width + CLONE_GAP;
+        if (dir === 'west') g.x -= geo.width + CLONE_GAP;
+        if (dir === 'south') g.y += geo.height + CLONE_GAP;
+        if (dir === 'north') g.y -= geo.height + CLONE_GAP;
+        // A fresh step to type into, like adding the next box in a flowchart.
+        clone!.value = '';
+        graph.addCell(clone!, cell.parent);
+        const edge = new Cell('', new Geometry(), toCellStyle(DEFAULT_EDGE_STYLE));
+        edge.edge = true;
+        edge.geometry!.relative = true;
+        graph.addEdge(edge, cell.parent, cell, clone!);
+      });
+      if (clone) graph.setSelectionCell(clone);
+      return clone;
+    },
+    applyLayout: (id) => editable() && applyLayout(graph, id),
+    clearWaypoints: () => {
+      if (!editable()) return;
+      const model = graph.getDataModel();
+      graph.batchUpdate(() => {
+        for (const edge of selection()) {
+          if (!edge.isEdge() || !edge.geometry?.points?.length) continue;
+          const geo = edge.geometry.clone();
+          geo.points = [];
+          model.setGeometry(edge, geo);
+        }
+      });
     },
   };
 }

@@ -53,6 +53,7 @@ export function useGraphVersion(canvas: CanvasHandle | null): number {
     selection.addListener(InternalEvent.CHANGE, listener);
     model.addListener(InternalEvent.CHANGE, listener);
     graph.view.addListener(InternalEvent.SCALE, listener);
+    graph.view.addListener(InternalEvent.TRANSLATE, listener);
     graph.view.addListener(InternalEvent.SCALE_AND_TRANSLATE, listener);
     undo.on('stack-item-added', listener);
     undo.on('stack-item-popped', listener);

@@ -18,6 +18,7 @@ import {
 import { toCellStyle } from '@/lib/drawio/style';
 import { DEFAULT_EDGE_STYLE } from './palette';
 import { installDarkCanvas } from './darkCanvas';
+import { installLineJumps } from './lineJumps';
 import { applyDrawioStylesheet, registerDrawioShapes } from './shapes';
 
 export const MIN_SCALE = 0.1;
@@ -37,6 +38,9 @@ function configureSelectionStyle(): void {
     selectionStrokeWidth: 2,
     selectionDashed: false,
     connectFillColor: SELECTION_BLUE,
+    // Drag the faint midpoint handles of a straight connector to add waypoints.
+    virtualBendsEnabled: true,
+    virtualBendOpacity: 40,
   });
   Object.assign(HandleConfig, { fillColor: '#ffffff', strokeColor: SELECTION_BLUE, size: 9, labelFillColor: '#ffffff' });
 }
@@ -81,6 +85,9 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
   const connection = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
   if (connection) {
     connection.constraintHandler.pointImage = new ImageBox(POINT_IMAGE, 10, 10);
+    // Hover/target highlights in the same blue as selection (maxGraph defaults to green).
+    connection.constraintHandler.highlightColor = SELECTION_BLUE;
+    connection.marker.validColor = SELECTION_BLUE;
     connection.factoryMethod = () => {
       const edge = new Cell('', new Geometry(), toCellStyle(DEFAULT_EDGE_STYLE));
       edge.edge = true;
@@ -91,6 +98,7 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
 
   const cleanups = [
     installDarkCanvas(graph),
+    installLineJumps(graph),
     installGridBackground(graph),
     installWheelNavigation(graph),
     installSpacePanning(graph),

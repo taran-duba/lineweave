@@ -7,6 +7,7 @@ import { YGraphBinding } from '@/lib/collab/yGraphBinding';
 import { bindShortcuts, createActions } from '@/lib/graph/actions';
 import { createGraph, setGridVisible } from '@/lib/graph/createGraph';
 import type { Attrs } from '@/lib/drawio/types';
+import { readPageSettings } from '@/lib/graph/pageView';
 import { PALETTES } from '@/lib/graph/palette';
 import type { CanvasHandle } from './hooks';
 
@@ -17,12 +18,14 @@ interface Props {
   pageId: string;
   readOnly: boolean;
   onReady(handle: CanvasHandle | null): void;
+  /** Rendered behind the graph (the page view's paper). */
+  underlay?: ReactNode;
   /** Overlays rendered above the graph (remote cursors, etc.). */
   children?: ReactNode;
 }
 
 /** Mounts a maxGraph editor bound to one page of the Y.Doc. Remounted per page. */
-export function Canvas({ doc, pageId, readOnly, onReady, children }: Props) {
+export function Canvas({ doc, pageId, readOnly, onReady, underlay, children }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const handleRef = useRef<CanvasHandle | null>(null);
   const onReadyRef = useRef(onReady);
@@ -44,10 +47,17 @@ export function Canvas({ doc, pageId, readOnly, onReady, children }: Props) {
     if (graph.getDefaultParent().children.length) actions.fit();
     else graph.view.setTranslate(40, 40);
 
-    // Grid visibility lives in the page's mxGraphModel attributes, so it's shared and saved.
-    const syncGrid = () => setGridVisible(graph, (page.get('modelAttrs') as Attrs | undefined)?.grid !== '0');
-    syncGrid();
-    page.observe(syncGrid);
+    // Grid, page view and background live in the page's mxGraphModel attributes,
+    // so they're shared with collaborators and saved in the file.
+    const syncPage = () => {
+      const attrs = page.get('modelAttrs') as Attrs | undefined;
+      const settings = readPageSettings(attrs);
+      setGridVisible(graph, attrs?.grid !== '0');
+      el.classList.toggle('page-view', settings.visible);
+      el.style.backgroundColor = !settings.visible && settings.background ? settings.background : '';
+    };
+    syncPage();
+    page.observe(syncPage);
 
     const handle: CanvasHandle = { graph, actions, undo, pageId };
     handleRef.current = handle;
@@ -55,7 +65,7 @@ export function Canvas({ doc, pageId, readOnly, onReady, children }: Props) {
     // Handy for debugging and E2E tests; never exposed in production builds.
     if (process.env.NODE_ENV !== 'production') (window as unknown as { __canvas?: CanvasHandle }).__canvas = handle;
     return () => {
-      page.unobserve(syncGrid);
+      page.unobserve(syncPage);
       handleRef.current = null;
       onReadyRef.current(null);
       unbind();
@@ -81,7 +91,8 @@ export function Canvas({ doc, pageId, readOnly, onReady, children }: Props) {
   };
 
   return (
-    <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+    <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--gutter)]">
+      {underlay}
       <div
         ref={ref}
         tabIndex={0}

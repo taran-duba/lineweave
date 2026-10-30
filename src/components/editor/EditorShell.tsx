@@ -6,6 +6,9 @@ import { pagesOf, sortedPageIds } from '@/lib/drawio/ydoc';
 import { Canvas } from './Canvas';
 import { CollabLayer } from './CollabLayer';
 import { FormatPanel } from './FormatPanel';
+import { HoverArrows } from './HoverArrows';
+import { Minimap } from './Minimap';
+import { PageLayer } from './PageLayer';
 import { EditorContext, useStore, useYVersion, type CanvasHandle, type EditorContextValue } from './hooks';
 import { PageTabs } from './PageTabs';
 import { ShapeLibrary } from './ShapeLibrary';
@@ -52,8 +55,17 @@ export function EditorShell({ session }: { session: EditorSession }) {
         <div className="flex min-h-0 flex-1">
           {!session.readOnly && <ShapeLibrary />}
           <div className="flex min-w-0 flex-1 flex-col">
-            <Canvas key={validPageId} doc={session.doc} pageId={validPageId} readOnly={session.readOnly} onReady={setCanvas}>
+            <Canvas
+              key={validPageId}
+              doc={session.doc}
+              pageId={validPageId}
+              readOnly={session.readOnly}
+              onReady={setCanvas}
+              underlay={<PageLayer />}
+            >
+              <HoverArrows />
               {session.presence && <CollabLayer />}
+              <Minimap />
             </Canvas>
             <PageTabs />
           </div>

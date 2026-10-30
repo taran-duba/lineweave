@@ -2,6 +2,8 @@
 
 import {
   BringToFront,
+  ChevronDown,
+  Network,
   CopyPlus,
   Group,
   Maximize,
@@ -13,7 +15,8 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import { Divider, IconButton } from '@/components/ui';
+import { Divider, DropdownMenu, IconButton } from '@/components/ui';
+import { LAYOUTS } from '@/lib/graph/layouts';
 import { useEditor, useGraphVersion } from './hooks';
 
 export function Toolbar() {
@@ -53,6 +56,17 @@ export function Toolbar() {
       <IconButton label={`Ungroup (${mod}⇧G)`} disabled={!editable || !selected} onClick={a?.ungroup}>
         <Ungroup size={16} />
       </IconButton>
+      <Divider />
+      <DropdownMenu
+        label="Auto layout"
+        disabled={!editable}
+        trigger={
+          <>
+            <Network size={16} /> Layout <ChevronDown size={13} className="text-muted" />
+          </>
+        }
+        items={LAYOUTS.map((l) => ({ label: l.label, onSelect: () => a?.applyLayout(l.id) }))}
+      />
       <div className="flex-1" />
       <IconButton label={`Zoom out (${mod}-)`} disabled={!canvas} onClick={a?.zoomOut}>
         <ZoomOut size={16} />
