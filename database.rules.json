@@ -1,0 +1,47 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$fileId": {
+        ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+        "members": {
+          ".write": false
+        },
+        "snapshot": {
+          ".write": "auth != null && root.child('rooms').child($fileId).child('members').child(auth.uid).val() === 'editor'",
+          ".validate": "newData.hasChildren(['state', 'at', 'by']) && newData.child('state').isString() && newData.child('by').val() === auth.uid"
+        },
+        "updates": {
+          ".write": "auth != null && !newData.exists() && root.child('rooms').child($fileId).child('members').child(auth.uid).val() === 'editor'",
+          "$updateId": {
+            ".write": "auth != null && root.child('rooms').child($fileId).child('members').child(auth.uid).val() === 'editor' && (!data.exists() || !newData.exists())",
+            ".validate": "newData.hasChildren(['u', 'by']) && newData.child('u').isString() && newData.child('u').val().length < 4000000 && newData.child('by').val() === auth.uid",
+            "u": { ".validate": true },
+            "by": { ".validate": true },
+            "t": { ".validate": "newData.val() === now || newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "meta": {
+          ".write": "auth != null && root.child('rooms').child($fileId).child('members').child(auth.uid).val() === 'editor'"
+        },
+        "presence": {
+          "$sessionKey": {
+            ".write": "auth != null && $sessionKey.beginsWith(auth.uid + '_') && root.child('rooms').child($fileId).child('members').child(auth.uid).exists()",
+            ".validate": "!newData.exists() || (newData.child('name').isString() && newData.child('name').val().length < 200 && (newData.child('role').val() === root.child('rooms').child($fileId).child('members').child(auth.uid).val()))"
+          }
+        },
+        "cursors": {
+          "$sessionKey": {
+            ".write": "auth != null && $sessionKey.beginsWith(auth.uid + '_') && root.child('rooms').child($fileId).child('members').child(auth.uid).exists()",
+            ".validate": "!newData.exists() || (newData.child('p').isString() && newData.child('x').isNumber() && newData.child('y').isNumber())"
+          }
+        },
+        "$other": {
+          ".write": false
+        }
+      }
+    }
+  }
+}

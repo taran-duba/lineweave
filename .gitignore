@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production
@@ -39,3 +40,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase emulators
+*-debug.log
+.firebase/
+
+# playwright
+/test-results/
+/playwright-report/
+
+# local tooling
+.claude-flow/
+!.env.example
