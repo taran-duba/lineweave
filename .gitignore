@@ -52,3 +52,6 @@ next-env.d.ts
 # local tooling
 .claude-flow/
 !.env.example
+
+# local dev server log
+.next-dev.log

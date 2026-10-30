@@ -1,6 +1,9 @@
 import {
   Cell,
   Client,
+  EdgeHandlerConfig,
+  HandleConfig,
+  VertexHandlerConfig,
   ConnectionConstraint,
   Geometry,
   ImageBox,
@@ -21,6 +24,23 @@ export const MIN_SCALE = 0.1;
 export const MAX_SCALE = 8;
 
 /** Creates a maxGraph instance configured to behave like the draw.io editor. */
+/**
+ * Selection looks like Google Slides: a solid blue outline with white square
+ * handles that have a blue border, so resize handles stay easy to spot on both
+ * the light and the dark canvas.
+ */
+const SELECTION_BLUE = '#1a73e8';
+function configureSelectionStyle(): void {
+  Object.assign(VertexHandlerConfig, { selectionColor: SELECTION_BLUE, selectionStrokeWidth: 2, selectionDashed: false });
+  Object.assign(EdgeHandlerConfig, {
+    selectionColor: SELECTION_BLUE,
+    selectionStrokeWidth: 2,
+    selectionDashed: false,
+    connectFillColor: SELECTION_BLUE,
+  });
+  Object.assign(HandleConfig, { fillColor: '#ffffff', strokeColor: SELECTION_BLUE, size: 9, labelFillColor: '#ffffff' });
+}
+
 // Connection points shown on hover, as in draw.io: drag from one to draw a connector.
 const CONNECTION_POINTS = [
   [0.25, 0], [0.5, 0], [0.75, 0],
@@ -36,6 +56,7 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
   // Default handle/folding images ship with maxGraph; we serve them from /public.
   Client.imageBasePath = '/maxgraph/images';
   registerDrawioShapes();
+  configureSelectionStyle();
   InternalEvent.disableContextMenu(container);
   const graph = new Graph(container, undefined, [...getDefaultPlugins(), RubberBandHandler]);
   applyDrawioStylesheet(graph.getStylesheet());

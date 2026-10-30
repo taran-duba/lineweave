@@ -2,7 +2,7 @@
 
 import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Underline } from 'lucide-react';
 import type { Cell, CellStateStyle, Graph } from '@maxgraph/core';
-import { ColorInput, Field, IconButton, NumberInput, Section, Select } from '@/components/ui';
+import { ColorInput, Field, IconButton, NumberInput, Section, Select, Stepper } from '@/components/ui';
 import type { Attrs } from '@/lib/drawio/types';
 import { pagesOf } from '@/lib/drawio/ydoc';
 import { storedCellStyle } from '@/lib/graph/darkCanvas';
@@ -112,12 +112,7 @@ export function FormatPanel() {
             <ColorInput value={style.strokeColor as string} onChange={(v) => set('strokeColor', v)} />
           </Field>
           <Field label="Width">
-            <NumberInput
-              min={0}
-              step={1}
-              value={Number(style.strokeWidth ?? 1)}
-              onChange={(e) => set('strokeWidth', Number(e.target.value))}
-            />
+            <Stepper label="Line width" min={0} max={50} value={Number(style.strokeWidth ?? 1)} onChange={(v) => set('strokeWidth', v)} />
           </Field>
           <Field label="Dashed">
             <input
@@ -128,12 +123,7 @@ export function FormatPanel() {
             />
           </Field>
           <Field label="Opacity">
-            <NumberInput
-              min={0}
-              max={100}
-              value={Number(style.opacity ?? 100)}
-              onChange={(e) => set('opacity', Math.min(100, Math.max(0, Number(e.target.value))))}
-            />
+            <Stepper label="Opacity" min={0} max={100} step={5} value={Number(style.opacity ?? 100)} onChange={(v) => set('opacity', v)} />
           </Field>
         </Section>
 
@@ -194,7 +184,7 @@ export function FormatPanel() {
             })}
           </div>
           <Field label="Size">
-            <NumberInput min={1} value={Number(style.fontSize ?? 12)} onChange={(e) => set('fontSize', Number(e.target.value))} />
+            <Stepper label="Font size" min={1} max={400} value={Number(style.fontSize ?? 12)} onChange={(v) => set('fontSize', v)} />
           </Field>
           <Field label="Color">
             <ColorInput value={style.fontColor as string} allowNone={false} onChange={(v) => set('fontColor', v)} />

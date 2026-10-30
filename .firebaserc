@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-upgraded-drawio"
+    "default": "demo-upgraded-drawio",
+    "prod": "upgraded-drawio-52ec1b"
   }
 }
