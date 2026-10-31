@@ -278,13 +278,17 @@ export function sortCellsForOutput(cells: CellData[]): CellData[] {
   return out;
 }
 
+/** A bare <mxGraphModel> (what diagrams.net puts on the clipboard). */
+export function serializeModel(cells: CellData[], modelAttrs: Attrs = {}): string {
+  const body = sortCellsForOutput(cells).map(cellXml).join('');
+  return `<mxGraphModel${attrString(Object.entries(modelAttrs))}><root>${body}</root></mxGraphModel>`;
+}
+
 export function serializeDrawio(file: FileData): string {
   const pages = [...file.pages].sort(byOrder);
   const diagrams = pages.map((p) => {
-    const model = attrString(Object.entries(p.modelAttrs));
-    const cells = sortCellsForOutput(p.cells).map(cellXml).join('');
     const dAttrs = attrString([['name', p.name], ['id', p.id], ...Object.entries(p.attrs)]);
-    return `<diagram${dAttrs}><mxGraphModel${model}><root>${cells}</root></mxGraphModel></diagram>`;
+    return `<diagram${dAttrs}>${serializeModel(p.cells, p.modelAttrs)}</diagram>`;
   });
   return `<mxfile${attrString(Object.entries(file.attrs))}>${diagrams.join('')}</mxfile>`;
 }

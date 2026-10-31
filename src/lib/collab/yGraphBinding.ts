@@ -21,6 +21,11 @@ import { cellFromY, cellsOf, writeCellFields, type YCell, type YCells, type YPag
  */
 export class YGraphBinding {
   readonly origin = { binding: 'local-graph' };
+  /**
+   * For local edits made directly to Y (paste, Edit Data/Style): applied to the
+   * graph like a remote change, but tracked by this user's undo manager.
+   */
+  readonly importOrigin = { binding: 'local-import' };
   readonly cells: YCells;
   private applying = false;
   private appliedStyle = new WeakMap<Cell, string | undefined>();

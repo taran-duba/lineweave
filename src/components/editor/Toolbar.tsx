@@ -3,7 +3,11 @@
 import {
   BringToFront,
   ChevronDown,
+  ImagePlus,
+  Keyboard,
+  Layers,
   Network,
+  Search,
   CopyPlus,
   Group,
   Maximize,
@@ -17,17 +21,16 @@ import {
 } from 'lucide-react';
 import { Divider, DropdownMenu, IconButton } from '@/components/ui';
 import { LAYOUTS } from '@/lib/graph/layouts';
-import { useEditor, useGraphVersion } from './hooks';
+import { modKey, useEditor, useGraphVersion } from './hooks';
 
 export function Toolbar() {
-  const { canvas, session } = useEditor();
+  const { canvas, session, openDialog, layersOpen, setLayersOpen } = useEditor();
   useGraphVersion(canvas);
   const editable = !!canvas && !session.readOnly;
   const a = canvas?.actions;
   const selected = canvas?.graph.getSelectionCount() ?? 0;
   const scale = canvas?.graph.view.scale ?? 1;
-  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-  const mod = isMac ? '⌘' : 'Ctrl+';
+  const mod = modKey();
 
   return (
     <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-border bg-panel px-2">
@@ -67,7 +70,20 @@ export function Toolbar() {
         }
         items={LAYOUTS.map((l) => ({ label: l.label, onSelect: () => a?.applyLayout(l.id) }))}
       />
+      <IconButton label="Insert image" disabled={!editable} onClick={() => openDialog({ kind: 'image' })}>
+        <ImagePlus size={16} />
+      </IconButton>
       <div className="flex-1" />
+      <IconButton label={`Find (${mod}F)`} disabled={!canvas} onClick={() => openDialog({ kind: 'find' })}>
+        <Search size={16} />
+      </IconButton>
+      <IconButton label={`Layers (${mod}⇧L)`} active={layersOpen} disabled={!canvas} onClick={() => setLayersOpen(!layersOpen)}>
+        <Layers size={16} />
+      </IconButton>
+      <IconButton label={`Keyboard shortcuts (${mod}/)`} onClick={() => openDialog({ kind: 'shortcuts' })}>
+        <Keyboard size={16} />
+      </IconButton>
+      <Divider />
       <IconButton label={`Zoom out (${mod}-)`} disabled={!canvas} onClick={a?.zoomOut}>
         <ZoomOut size={16} />
       </IconButton>

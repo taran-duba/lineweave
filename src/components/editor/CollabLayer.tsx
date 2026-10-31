@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { InternalEvent } from '@maxgraph/core';
 import { useEditor, useGraphVersion, useStore } from './hooks';
 
@@ -15,6 +15,11 @@ export function CollabLayer() {
   useGraphVersion(canvas);
   const others = useStore(presence?.others) ?? [];
   const cursors = useStore(presence?.cursors) ?? {};
+  const [hovered, setHovered] = useState<string | null>(null);
+  const othersRef = useRef(others);
+  useLayoutEffect(() => {
+    othersRef.current = others;
+  });
 
   useEffect(() => {
     if (!presence || !canvas) return;
@@ -23,13 +28,32 @@ export function CollabLayer() {
     const onMove = (e: PointerEvent) => {
       const { scale, translate } = graph.view;
       const rect = container.getBoundingClientRect();
+      // Hit-test collaborators' selection outlines (the layer itself is
+      // pointer-events-none so it never blocks the canvas).
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      let hit: string | null = null;
+      for (const c of othersRef.current) {
+        if (c.pageId !== pageId) continue;
+        for (const id of c.selection ?? []) {
+          const cell = graph.getDataModel().getCell(id);
+          const st = cell && graph.view.getState(cell);
+          if (st && px >= st.x - 3 && px <= st.x + st.width + 3 && py >= st.y - 3 && py <= st.y + st.height + 3) {
+            hit = `${c.uid}:${id}`;
+          }
+        }
+      }
+      setHovered(hit);
       presence.setCursor({
         pageId,
         x: (e.clientX - rect.left) / scale - translate.x,
         y: (e.clientY - rect.top) / scale - translate.y,
       });
     };
-    const onLeave = () => presence.setCursor(null);
+    const onLeave = () => {
+      presence.setCursor(null);
+      setHovered(null);
+    };
     const publishSelection = () =>
       presence.setSelection(
         pageId,
@@ -58,9 +82,10 @@ export function CollabLayer() {
           const cell = graph.getDataModel().getCell(id);
           const state = cell && graph.view.getState(cell);
           if (!state) return [];
+          const key = `${c.uid}:${id}`;
           return [
             <div
-              key={`${c.uid}:${id}`}
+              key={key}
               className="absolute rounded-[3px]"
               style={{
                 left: state.x - 3,
@@ -69,7 +94,16 @@ export function CollabLayer() {
                 height: state.height + 6,
                 outline: `2px solid ${c.color}`,
               }}
-            />,
+            >
+              {hovered === key && (
+                <span
+                  className="absolute -top-6 left-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium text-white shadow"
+                  style={{ background: c.color }}
+                >
+                  {c.name}
+                </span>
+              )}
+            </div>,
           ];
         }),
       )}

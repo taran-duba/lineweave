@@ -1,6 +1,18 @@
-import { Cell, Clipboard, Geometry, Point, type Graph } from '@maxgraph/core';
+import { Cell, Geometry, Point, type Graph } from '@maxgraph/core';
 import type * as Y from 'yjs';
+import { insertCopies } from '@/lib/collab/cellEdits';
+import type { YGraphBinding } from '@/lib/collab/yGraphBinding';
 import { toCellStyle } from '@/lib/drawio/style';
+import {
+  alignSelection,
+  distributeSelection,
+  flipSelection,
+  rotateSelection,
+  toggleLockSelection,
+  type Align,
+} from './arrange';
+import { cellsFromText, lastCopied, pasteCells, rememberCopy, selectionCells, selectionToXml } from './clipboard';
+import { imageFromFile, imageStyle, insertSize, type ImageData } from './images';
 import { applyLayout, type LayoutId } from './layouts';
 import { DEFAULT_EDGE_STYLE, type PaletteItem } from './palette';
 
@@ -26,12 +38,25 @@ export interface EditorActions {
   cloneAndConnect(cell: Cell, dir: Direction): Cell | null;
   applyLayout(id: LayoutId): void;
   clearWaypoints(): void;
+  /** Serializes the selection as draw.io XML (and remembers it for menu paste). */
+  copyXml(): string | null;
+  /** Pastes draw.io XML; returns false if the text isn't a diagram. */
+  pasteText(text: string): boolean;
+  insertImage(image: ImageData): void;
+  insertImageFile(file: File): Promise<void>;
+  align(align: Align): void;
+  distribute(axis: 'horizontal' | 'vertical'): void;
+  rotate90(): void;
+  flip(key: 'flipH' | 'flipV'): void;
+  toggleLock(): void;
+  selectVertices(): void;
+  selectEdges(): void;
 }
 
 export type Direction = 'north' | 'south' | 'east' | 'west';
 const CLONE_GAP = 60;
 
-export function createActions(graph: Graph, undoManager: Y.UndoManager): EditorActions {
+export function createActions(graph: Graph, undoManager: Y.UndoManager, binding: YGraphBinding): EditorActions {
   const selection = () => graph.getSelectionCells();
   const editable = () => graph.isEnabled();
 
@@ -41,18 +66,60 @@ export function createActions(graph: Graph, undoManager: Y.UndoManager): EditorA
     return { x: c.clientWidth / 2 / scale - translate.x, y: c.clientHeight / 2 / scale - translate.y };
   };
 
-  return {
+  const actions: EditorActions = {
     undo: () => editable() && undoManager.undo(),
     redo: () => editable() && undoManager.redo(),
     deleteSelection: () => editable() && graph.removeCells(graph.getDeletableCells(selection()), true),
     duplicate: () => {
       if (!editable() || !selection().length) return;
-      Clipboard.copy(graph);
-      Clipboard.paste(graph);
+      const ids = insertCopies(binding, selectionCells(graph, binding), graph.getDefaultParent().id!, 10, 10);
+      graph.setSelectionCells(ids.flatMap((id) => graph.getDataModel().getCell(id) ?? []));
     },
-    copy: () => selection().length && Clipboard.copy(graph),
-    cut: () => editable() && selection().length && Clipboard.cut(graph),
-    paste: () => editable() && !Clipboard.isEmpty() && Clipboard.paste(graph),
+    copyXml: () => {
+      const xml = selectionToXml(graph, binding);
+      if (xml) rememberCopy(xml);
+      return xml;
+    },
+    // Menu-driven copy/paste: the system clipboard is written when allowed, and
+    // paste uses what we last copied (reading the clipboard needs a permission prompt).
+    copy: () => {
+      const xml = selectionToXml(graph, binding);
+      if (!xml) return;
+      rememberCopy(xml);
+      navigator.clipboard?.writeText(xml).catch(() => undefined);
+    },
+    cut: () => {
+      if (!editable()) return;
+      const xml = selectionToXml(graph, binding);
+      if (!xml) return;
+      rememberCopy(xml);
+      navigator.clipboard?.writeText(xml).catch(() => undefined);
+      graph.removeCells(graph.getDeletableCells(selection()), true);
+    },
+    paste: () => {
+      const xml = lastCopied();
+      if (editable() && xml) pasteCells(graph, binding, cellsFromText(xml) ?? [], true);
+    },
+    pasteText: (text) => {
+      if (!editable()) return false;
+      const cells = cellsFromText(text);
+      if (!cells?.length) return false;
+      pasteCells(graph, binding, cells, text === lastCopied());
+      return true;
+    },
+    insertImage: (image) => {
+      if (!editable()) return;
+      const size = insertSize(image.width, image.height);
+      actions.insert({ id: 'image', title: 'Image', style: imageStyle(image.url), ...size });
+    },
+    insertImageFile: async (file) => actions.insertImage(await imageFromFile(file)),
+    align: (a) => editable() && alignSelection(graph, a),
+    distribute: (axis) => editable() && distributeSelection(graph, axis),
+    rotate90: () => editable() && rotateSelection(graph, 90),
+    flip: (key) => editable() && flipSelection(graph, key),
+    toggleLock: () => editable() && toggleLockSelection(graph),
+    selectVertices: () => graph.setSelectionCells(graph.getDefaultParent().children.filter((c) => c.isVertex())),
+    selectEdges: () => graph.setSelectionCells(graph.getDefaultParent().children.filter((c) => c.isEdge())),
     selectAll: () => graph.selectAll(),
     toFront: () => editable() && graph.orderCells(false),
     toBack: () => editable() && graph.orderCells(true),
@@ -128,6 +195,7 @@ export function createActions(graph: Graph, undoManager: Y.UndoManager): EditorA
       });
     },
   };
+  return actions;
 }
 
 /** Centers the content in the viewport, zooming out (never in past 100%) so it fits. */
@@ -163,10 +231,12 @@ export function bindShortcuts(graph: Graph, actions: EditorActions): () => void 
     };
     if (mod && key === 'z') return run(e.shiftKey ? actions.redo : actions.undo);
     if (mod && key === 'y') return run(actions.redo);
-    if (mod && key === 'c') return run(actions.copy);
-    if (mod && key === 'x') return run(actions.cut);
-    if (mod && key === 'v') return run(actions.paste);
+    // Copy, cut and paste go through the clipboard events below.
     if (mod && key === 'd') return run(actions.duplicate);
+    if (mod && key === 'r') return run(actions.rotate90);
+    if (mod && !e.shiftKey && key === 'l') return run(actions.toggleLock);
+    if (mod && e.shiftKey && key === 'i') return run(actions.selectVertices);
+    if (mod && e.shiftKey && key === 'e') return run(actions.selectEdges);
     if (mod && key === 'a') return run(actions.selectAll);
     if (mod && key === 'g') return run(e.shiftKey ? actions.ungroup : actions.group);
     if (mod && (key === '=' || key === '+')) return run(actions.zoomIn);
@@ -187,6 +257,34 @@ export function bindShortcuts(graph: Graph, actions: EditorActions): () => void 
       run(() => graph.moveCells(graph.getMovableCells(graph.getSelectionCells()), dx, dy));
     }
   };
+  const ignore = (e: Event) => isTyping(e.target) || isTyping(document.activeElement) || graph.isEditing();
+  const onCopy = (e: ClipboardEvent, cut = false) => {
+    if (ignore(e) || !graph.getSelectionCount()) return;
+    const xml = actions.copyXml();
+    if (!xml || !e.clipboardData) return;
+    e.clipboardData.setData('text/plain', xml);
+    e.preventDefault();
+    if (cut) actions.deleteSelection();
+  };
+  const onCut = (e: ClipboardEvent) => onCopy(e, true);
+  const onPaste = (e: ClipboardEvent) => {
+    if (ignore(e) || !e.clipboardData) return;
+    const file = [...e.clipboardData.files].find((f) => f.type.startsWith('image/'));
+    if (file) {
+      e.preventDefault();
+      actions.insertImageFile(file).catch((err) => alert(err instanceof Error ? err.message : String(err)));
+      return;
+    }
+    if (actions.pasteText(e.clipboardData.getData('text/plain'))) e.preventDefault();
+  };
   window.addEventListener('keydown', onKey);
-  return () => window.removeEventListener('keydown', onKey);
+  document.addEventListener('copy', onCopy);
+  document.addEventListener('cut', onCut);
+  document.addEventListener('paste', onPaste);
+  return () => {
+    window.removeEventListener('keydown', onKey);
+    document.removeEventListener('copy', onCopy);
+    document.removeEventListener('cut', onCut);
+    document.removeEventListener('paste', onPaste);
+  };
 }

@@ -1,9 +1,20 @@
 'use client';
 
-import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Underline } from 'lucide-react';
-import { ColorInput, Field, IconButton, NumberInput, Section, Select, Stepper } from '@/components/ui';
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
+  AlignVerticalJustifyStart,
+  Bold,
+  Italic,
+  Underline,
+} from 'lucide-react';
+import { ColorInput, Field, IconButton, Section, Select, Stepper } from '@/components/ui';
 import { pagesOf } from '@/lib/drawio/ydoc';
 import { storedCellStyle } from '@/lib/graph/darkCanvas';
+import { ArrangeSection } from './format/ArrangeSection';
 import { ConnectorSection } from './format/ConnectorSection';
 import { DiagramSection } from './format/DiagramSection';
 import { setStyle, setStyles } from './format/setStyle';
@@ -12,6 +23,8 @@ import { useEditor, useGraphVersion, useYVersion } from './hooks';
 const FONT_BOLD = 1;
 const FONT_ITALIC = 2;
 const FONT_UNDERLINE = 4;
+
+const FONTS = ['Helvetica', 'Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Georgia', 'Times New Roman', 'Garamond', 'Courier New', 'Comic Sans MS'];
 
 const PATTERNS = {
   solid: { dashed: null, dashPattern: null },
@@ -54,14 +67,6 @@ export function FormatPanel() {
     });
   };
 
-  const geo = cells.length === 1 && first.isVertex() ? first.geometry : null;
-  const setGeo = (key: 'x' | 'y' | 'width' | 'height', v: number) => {
-    if (!geo || readOnly || !Number.isFinite(v)) return;
-    const g = geo.clone();
-    g[key] = key === 'width' || key === 'height' ? Math.max(1, v) : v;
-    graph.getDataModel().setGeometry(first, g);
-  };
-
   const pattern = !style.dashed ? 'solid' : style.dashPattern === '1 4' ? 'dotted' : 'dashed';
 
   return (
@@ -72,6 +77,23 @@ export function FormatPanel() {
             <Field label="Fill">
               <ColorInput value={style.fillColor as string} onChange={(v) => set('fillColor', v, vertices)} />
             </Field>
+            <Field label="Gradient">
+              <ColorInput
+                value={style.gradientColor as string}
+                onChange={(v) => set('gradientColor', v === 'none' ? null : v, vertices)}
+              />
+            </Field>
+            {!!style.gradientColor && style.gradientColor !== 'none' && (
+              <Field label="Direction">
+                <Select value={String(style.gradientDirection ?? 'south')} onChange={(e) => set('gradientDirection', e.target.value, vertices)}>
+                  <option value="south">Top to bottom</option>
+                  <option value="north">Bottom to top</option>
+                  <option value="east">Left to right</option>
+                  <option value="west">Right to left</option>
+                  <option value="radial">Radial</option>
+                </Select>
+              </Field>
+            )}
             <Field label="Rounded">
               <input
                 type="checkbox"
@@ -127,32 +149,56 @@ export function FormatPanel() {
             {(['left', 'center', 'right'] as const).map((al) => {
               const Icon = al === 'left' ? AlignLeft : al === 'center' ? AlignCenter : AlignRight;
               return (
-                <IconButton key={al} label={`Align ${al}`} active={(style.align ?? 'center') === al} onClick={() => set('align', al)}>
+                <IconButton key={al} label={`Text align ${al}`} active={(style.align ?? 'center') === al} onClick={() => set('align', al)}>
                   <Icon size={15} />
                 </IconButton>
               );
             })}
           </div>
+          <div className="flex items-center gap-0.5">
+            {(['top', 'middle', 'bottom'] as const).map((va) => {
+              const Icon = va === 'top' ? AlignVerticalJustifyStart : va === 'middle' ? AlignVerticalJustifyCenter : AlignVerticalJustifyEnd;
+              return (
+                <IconButton key={va} label={`Text ${va}`} active={(style.verticalAlign ?? 'middle') === va} onClick={() => set('verticalAlign', va)}>
+                  <Icon size={15} />
+                </IconButton>
+              );
+            })}
+            <div className="flex-1" />
+            <label className="flex items-center gap-1.5 text-[12px] text-muted">
+              <input
+                type="checkbox"
+                checked={style.whiteSpace === 'wrap'}
+                onChange={(e) => set('whiteSpace', e.target.checked ? 'wrap' : null)}
+                className="accent-[var(--accent)]"
+              />
+              Wrap
+            </label>
+          </div>
+          <Field label="Font">
+            <Select value={String(style.fontFamily ?? 'Helvetica')} onChange={(e) => set('fontFamily', e.target.value)}>
+              {[...new Set([String(style.fontFamily ?? 'Helvetica'), ...FONTS])].map((f) => (
+                <option key={f} value={f} style={{ fontFamily: f }}>
+                  {f}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Size">
             <Stepper label="Font size" min={1} max={400} value={Number(style.fontSize ?? 12)} onChange={(v) => set('fontSize', v)} />
           </Field>
           <Field label="Color">
             <ColorInput value={style.fontColor as string} allowNone={false} onChange={(v) => set('fontColor', v)} />
           </Field>
+          <Field label="Background">
+            <ColorInput
+              value={style.labelBackgroundColor as string}
+              onChange={(v) => set('labelBackgroundColor', v === 'none' ? null : v)}
+            />
+          </Field>
         </Section>
 
-        {geo && (
-          <Section title="Arrange">
-            <div className="grid grid-cols-2 gap-2">
-              {(['x', 'y', 'width', 'height'] as const).map((k) => (
-                <label key={k} className="flex items-center gap-1.5 text-[12px] text-muted">
-                  <span className="w-3 uppercase">{k[0]}</span>
-                  <NumberInput className="w-full" value={Math.round(geo[k])} onChange={(e) => setGeo(k, Number(e.target.value))} />
-                </label>
-              ))}
-            </div>
-          </Section>
-        )}
+        {canvas && <ArrangeSection graph={graph} cells={cells} style={style} actions={canvas.actions} readOnly={readOnly} />}
       </fieldset>
     </aside>
   );

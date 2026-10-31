@@ -5,6 +5,7 @@ import * as Y from 'yjs';
 import { pagesOf } from '@/lib/drawio/ydoc';
 import { YGraphBinding } from '@/lib/collab/yGraphBinding';
 import { bindShortcuts, createActions } from '@/lib/graph/actions';
+import { installTooltipsAndLinks } from '@/lib/graph/links';
 import { createGraph, setGridVisible } from '@/lib/graph/createGraph';
 import type { Attrs } from '@/lib/drawio/types';
 import { readPageSettings } from '@/lib/graph/pageView';
@@ -39,9 +40,13 @@ export function Canvas({ doc, pageId, readOnly, onReady, underlay, children }: P
     if (!el || !page) return;
     const { graph, destroy } = createGraph(el);
     const binding = new YGraphBinding(graph.getDataModel(), page);
-    const undo = new Y.UndoManager(binding.cells, { trackedOrigins: new Set([binding.origin]), captureTimeout: 0 });
+    const undo = new Y.UndoManager(binding.cells, {
+      trackedOrigins: new Set([binding.origin, binding.importOrigin]),
+      captureTimeout: 0,
+    });
     graph.setEnabled(!readOnly);
-    const actions = createActions(graph, undo);
+    const actions = createActions(graph, undo, binding);
+    const uninstallLinks = installTooltipsAndLinks(graph, binding);
     const unbind = bindShortcuts(graph, actions);
     // Start with the content in view, or the page origin with a margin.
     if (graph.getDefaultParent().children.length) actions.fit();
@@ -59,7 +64,7 @@ export function Canvas({ doc, pageId, readOnly, onReady, underlay, children }: P
     syncPage();
     page.observe(syncPage);
 
-    const handle: CanvasHandle = { graph, actions, undo, pageId };
+    const handle: CanvasHandle = { graph, actions, undo, pageId, binding };
     handleRef.current = handle;
     onReadyRef.current(handle);
     // Handy for debugging and E2E tests; never exposed in production builds.
@@ -69,9 +74,12 @@ export function Canvas({ doc, pageId, readOnly, onReady, underlay, children }: P
       handleRef.current = null;
       onReadyRef.current(null);
       unbind();
+      uninstallLinks();
       undo.destroy();
       binding.destroy();
-      destroy();
+      // Overlays (minimap, hover arrows, ...) clean up after this effect and still
+      // need a live graph, so tear it down once React has finished unmounting.
+      queueMicrotask(destroy);
     };
   }, [doc, pageId, readOnly]);
 

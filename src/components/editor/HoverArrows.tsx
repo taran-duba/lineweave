@@ -52,11 +52,14 @@ export function HoverArrows() {
     };
     graph.addMouseListener(listener);
     const leave = () => scheduleHide();
-    graph.container.addEventListener('pointerleave', leave);
+    // Keep our own reference: on page switch the graph is destroyed (and its
+    // container nulled) before this cleanup runs.
+    const container = graph.container;
+    container.addEventListener('pointerleave', leave);
     return () => {
       clearTimeout(hideTimer.current);
       graph.removeMouseListener(listener);
-      graph.container.removeEventListener('pointerleave', leave);
+      container.removeEventListener('pointerleave', leave);
     };
   }, [canvas, session.readOnly]);
 

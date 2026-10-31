@@ -1,15 +1,22 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { EditorSession } from '@/lib/collab/session';
 import { pagesOf, sortedPageIds } from '@/lib/drawio/ydoc';
 import { Canvas } from './Canvas';
+import { CanvasContextMenu } from './CanvasContextMenu';
+import { EditDataDialog } from './dialogs/EditDataDialog';
+import { EditStyleDialog } from './dialogs/EditStyleDialog';
+import { FindPanel } from './dialogs/FindPanel';
+import { InsertImageDialog } from './dialogs/InsertImageDialog';
+import { ShortcutsDialog } from './dialogs/ShortcutsDialog';
+import { LayersPanel } from './LayersPanel';
 import { CollabLayer } from './CollabLayer';
 import { FormatPanel } from './FormatPanel';
 import { HoverArrows } from './HoverArrows';
 import { Minimap } from './Minimap';
 import { PageLayer } from './PageLayer';
-import { EditorContext, useStore, useYVersion, type CanvasHandle, type EditorContextValue } from './hooks';
+import { EditorContext, useStore, useYVersion, type CanvasHandle, type DialogRequest, type EditorContextValue } from './hooks';
 import { PageTabs } from './PageTabs';
 import { ShapeLibrary } from './ShapeLibrary';
 import { Toolbar } from './Toolbar';
@@ -39,11 +46,41 @@ export function EditorShell({ session }: { session: EditorSession }) {
   // If the current page disappears (deleted by a collaborator), fall back to the first page.
   const validPageId = pages.has(pageId) ? pageId : sortedPageIds(session.doc)[0];
 
+  const [dialog, setDialog] = useState<DialogRequest | null>(null);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const closeDialog = useCallback(() => setDialog(null), []);
+
   const setPageId = useCallback((id: string) => setPageIdState(id), []);
+  const liveCanvas = canvas?.pageId === validPageId ? canvas : null;
   const value = useMemo<EditorContextValue>(
-    () => ({ session, canvas: canvas?.pageId === validPageId ? canvas : null, pageId: validPageId, setPageId }),
-    [session, canvas, validPageId, setPageId],
+    () => ({ session, canvas: liveCanvas, pageId: validPageId, setPageId, openDialog: setDialog, layersOpen, setLayersOpen }),
+    [session, liveCanvas, validPageId, setPageId, layersOpen],
   );
+
+  // Shortcuts that open panels and dialogs (editing shortcuts live in the canvas).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t?.tagName ?? '') || liveCanvas?.graph.isEditing()) return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      const single = liveCanvas?.graph.getSelectionCount() === 1 ? liveCanvas.graph.getSelectionCell()?.id : null;
+      const open = (d: DialogRequest) => {
+        e.preventDefault();
+        setDialog(d);
+      };
+      if (key === 'f' && !e.shiftKey) open({ kind: 'find' });
+      else if (key === '/') open({ kind: 'shortcuts' });
+      else if (key === 'e' && !e.shiftKey && single && !session.readOnly) open({ kind: 'style', cellId: single });
+      else if (key === 'm' && !e.shiftKey && single && !session.readOnly) open({ kind: 'data', cellId: single });
+      else if (key === 'l' && e.shiftKey) {
+        e.preventDefault();
+        setLayersOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [liveCanvas, session.readOnly]);
 
   if (!validPageId) return null;
   return (
@@ -66,12 +103,21 @@ export function EditorShell({ session }: { session: EditorSession }) {
               <HoverArrows />
               {session.presence && <CollabLayer />}
               <Minimap />
+              <CanvasContextMenu />
+              {layersOpen && <LayersPanel onClose={() => setLayersOpen(false)} />}
+              {dialog?.kind === 'find' && liveCanvas && (
+                <FindPanel canvas={liveCanvas} readOnly={session.readOnly} onClose={closeDialog} />
+              )}
             </Canvas>
             <PageTabs />
           </div>
           <FormatPanel />
         </div>
       </div>
+      {liveCanvas && dialog?.kind === 'style' && <EditStyleDialog canvas={liveCanvas} cellId={dialog.cellId} onClose={closeDialog} />}
+      {liveCanvas && dialog?.kind === 'data' && <EditDataDialog canvas={liveCanvas} cellId={dialog.cellId} onClose={closeDialog} />}
+      {liveCanvas && dialog?.kind === 'image' && <InsertImageDialog canvas={liveCanvas} onClose={closeDialog} />}
+      {dialog?.kind === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
     </EditorContext.Provider>
   );
 }

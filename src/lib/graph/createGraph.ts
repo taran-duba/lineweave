@@ -6,6 +6,7 @@ import {
   VertexHandlerConfig,
   ConnectionConstraint,
   Geometry,
+  Guide,
   ImageBox,
   Point,
   Graph,
@@ -14,6 +15,7 @@ import {
   getDefaultPlugins,
   type ConnectionHandler,
   type PanningHandler,
+  type SelectionHandler,
 } from '@maxgraph/core';
 import { toCellStyle } from '@/lib/drawio/style';
 import { DEFAULT_EDGE_STYLE } from './palette';
@@ -32,7 +34,12 @@ export const MAX_SCALE = 8;
  */
 const SELECTION_BLUE = '#1a73e8';
 function configureSelectionStyle(): void {
-  Object.assign(VertexHandlerConfig, { selectionColor: SELECTION_BLUE, selectionStrokeWidth: 2, selectionDashed: false });
+  Object.assign(VertexHandlerConfig, {
+    selectionColor: SELECTION_BLUE,
+    selectionStrokeWidth: 2,
+    selectionDashed: false,
+    rotationEnabled: true,
+  });
   Object.assign(EdgeHandlerConfig, {
     selectionColor: SELECTION_BLUE,
     selectionStrokeWidth: 2,
@@ -43,6 +50,27 @@ function configureSelectionStyle(): void {
     virtualBendOpacity: 40,
   });
   Object.assign(HandleConfig, { fillColor: '#ffffff', strokeColor: SELECTION_BLUE, size: 9, labelFillColor: '#ffffff' });
+  // Alignment guides while dragging, in a color distinct from selection.
+  Guide.prototype.getGuideColor = () => '#e8336a';
+}
+
+/**
+ * draw.io stores embedded images as `image=data:image/png,<base64>` (no
+ * `;base64`, because `;` separates style keys) and restores it for display.
+ */
+export function displayImageUrl(image: unknown): unknown {
+  if (typeof image !== 'string' || !image.startsWith('data:image/')) return image;
+  const comma = image.indexOf(',');
+  if (comma < 0 || image.slice(comma - 7, comma + 1) === ';base64,') return image;
+  // SVG may be stored URL-encoded rather than base64; leave that as-is.
+  const payload = image.slice(comma + 1);
+  if (/^[A-Za-z0-9+/=\s]+$/.test(payload)) return `${image.slice(0, comma)};base64,${payload}`;
+  return image;
+}
+
+/** `locked=1` (draw.io's lock) blocks moving, resizing, rotating, editing and deleting. */
+function isLockedStyle(style: Record<string, unknown>): boolean {
+  return style.locked === 1 || style.locked === '1' || style.locked === true;
 }
 
 // Connection points shown on hover, as in draw.io: drag from one to draw a connector.
@@ -81,6 +109,23 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
     terminal?.cell?.isVertex() && !terminal.cell.isEdge()
       ? CONNECTION_POINTS.map(([x, y]) => new ConnectionConstraint(new Point(x, y), true))
       : null;
+
+  const baseStyle = graph.getCellStyle.bind(graph);
+  graph.getCellStyle = (cell) => {
+    const style = baseStyle(cell);
+    const image = displayImageUrl(style.image);
+    return image === style.image ? style : { ...style, image: image as string };
+  };
+  const baseLocked = graph.isCellLocked.bind(graph);
+  // A cell is locked if it, or any container/layer above it, is locked.
+  const lockedUp = (cell: Cell | null): boolean =>
+    !!cell && (isLockedStyle(cell.style as Record<string, unknown>) || lockedUp(cell.parent));
+  graph.isCellLocked = (cell) => baseLocked(cell) || lockedUp(cell);
+  const baseDeletable = graph.isCellDeletable.bind(graph);
+  graph.isCellDeletable = (cell) => baseDeletable(cell) && !lockedUp(cell);
+
+  const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
+  if (selectionHandler) selectionHandler.guidesEnabled = true;
 
   const connection = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
   if (connection) {

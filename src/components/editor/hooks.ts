@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useReducer, useSyncExternalStore 
 import { InternalEvent, type Graph } from '@maxgraph/core';
 import type * as Y from 'yjs';
 import type { EditorActions } from '@/lib/graph/actions';
+import type { YGraphBinding } from '@/lib/collab/yGraphBinding';
 import type { EditorSession } from '@/lib/collab/session';
 import type { Store } from '@/lib/store';
 
@@ -12,14 +13,26 @@ export interface CanvasHandle {
   actions: EditorActions;
   undo: Y.UndoManager;
   pageId: string;
+  binding: YGraphBinding;
 }
+
+export type DialogRequest =
+  | { kind: 'style' | 'data'; cellId: string }
+  | { kind: 'find' | 'image' | 'shortcuts' };
 
 export interface EditorContextValue {
   session: EditorSession;
   canvas: CanvasHandle | null;
   pageId: string;
   setPageId(id: string): void;
+  openDialog(request: DialogRequest): void;
+  layersOpen: boolean;
+  setLayersOpen(open: boolean): void;
 }
+
+export const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+/** Shortcut label prefix: ⌘ on macOS, Ctrl+ elsewhere. */
+export const modKey = () => (isMac() ? '⌘' : 'Ctrl+');
 
 export const EditorContext = createContext<EditorContextValue | null>(null);
 
