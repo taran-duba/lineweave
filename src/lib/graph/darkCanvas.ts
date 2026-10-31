@@ -28,7 +28,10 @@ export function adaptStyleForDark(style: CellStateStyle, cell: Cell): CellStateS
     // Labels drawn outside the shape sit directly on the canvas.
     const labelOutside =
       ['top', 'bottom'].includes(norm(s.verticalLabelPosition)) || ['left', 'right'].includes(norm(s.labelPosition));
-    if ((unfilled || STROKE_ONLY_SHAPES.has(norm(s.shape))) && isBlack(s.strokeColor)) s.strokeColor = LIGHT;
+    // Schematic symbols are line art: white paper fill becomes canvas, so the symbol reads as light lines.
+    const lineArt = norm(s.shape).startsWith('mxgraph.electrical.') || norm(s.fillColor) === 'strokecolor';
+    if (lineArt && isBlack(s.strokeColor) && (isWhite(s.fillColor) || s.fillColor == null)) s.fillColor = CANVAS;
+    if ((unfilled || lineArt || STROKE_ONLY_SHAPES.has(norm(s.shape))) && isBlack(s.strokeColor)) s.strokeColor = LIGHT;
     if ((unfilled || labelOutside) && isBlack(s.fontColor)) s.fontColor = LIGHT;
   }
   return s as CellStateStyle;

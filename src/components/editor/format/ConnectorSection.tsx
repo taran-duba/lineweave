@@ -3,6 +3,7 @@
 import type { Cell, Graph } from '@maxgraph/core';
 import { Button, Field, Section, Select, Stepper } from '@/components/ui';
 import type { EditorActions } from '@/lib/graph/actions';
+import { WIRE_TYPES, wireStyleValues, type WireType } from '@/lib/graph/wires';
 import { setStyles, type StyleRecord } from './setStyle';
 
 const ARROWS = ['none', 'classic', 'classicThin', 'block', 'blockThin', 'open', 'openThin', 'oval', 'diamond', 'diamondThin'];
@@ -30,6 +31,14 @@ function routeOf(style: StyleRecord): Route {
     default:
       return style.curved ? 'curved' : 'straight';
   }
+}
+
+function isWireType(style: StyleRecord, w: WireType): boolean {
+  return (
+    String(style.strokeColor ?? '').toLowerCase() === w.stroke &&
+    Number(style.strokeWidth ?? 1) === w.width &&
+    (style.dashPattern ?? undefined) === w.dash
+  );
 }
 
 export function ConnectorSection({
@@ -65,6 +74,36 @@ export function ConnectorSection({
           className="accent-[var(--accent)]"
         />
       </Field>
+      <div className="flex items-center justify-between gap-3 text-[13px]">
+        <span className="text-muted" id="wire-type-label">
+          Wire
+        </span>
+        <div className="flex flex-wrap justify-end gap-1" role="group" aria-labelledby="wire-type-label">
+          {WIRE_TYPES.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              title={w.title}
+              aria-label={`${w.title} wire`}
+              aria-pressed={isWireType(style, w)}
+              onClick={() => set(wireStyleValues(w))}
+              className="flex h-6 w-6 items-center justify-center rounded border border-border hover:bg-panel-2 aria-pressed:border-accent"
+            >
+              <svg width="16" height="8" aria-hidden>
+                <line
+                  x1="1"
+                  y1="4"
+                  x2="15"
+                  y2="4"
+                  stroke={w.stroke === '#000000' ? 'currentColor' : w.stroke}
+                  strokeWidth={Math.max(w.width, 1.5)}
+                  strokeDasharray={w.dash ? '3 2' : undefined}
+                />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
       <Field label="Line jumps">
         <Select value={String(style.jumpStyle ?? 'none')} onChange={(e) => set({ jumpStyle: e.target.value === 'none' ? null : e.target.value })}>
           <option value="none">None</option>

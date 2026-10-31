@@ -15,6 +15,7 @@ import { cellsFromText, lastCopied, pasteCells, rememberCopy, selectionCells, se
 import { imageFromFile, imageStyle, insertSize, type ImageData } from './images';
 import { applyLayout, type LayoutId } from './layouts';
 import { DEFAULT_EDGE_STYLE, type PaletteItem } from './palette';
+import { isSchematicCell, schematicConnectorStyle } from './wires';
 
 export interface EditorActions {
   undo(): void;
@@ -179,10 +180,11 @@ export function createActions(graph: Graph, undoManager: Y.UndoManager, binding:
         if (dir === 'west') g.x -= geo.width + CLONE_GAP;
         if (dir === 'south') g.y += geo.height + CLONE_GAP;
         if (dir === 'north') g.y -= geo.height + CLONE_GAP;
-        // A fresh step to type into, like adding the next box in a flowchart.
-        clone!.value = '';
+        // A fresh step to type into, like adding the next box in a flowchart. Electrical
+        // parts keep their label: it names the part and, on wiring blocks, its terminals.
+        if (!isSchematicCell(cell)) clone!.value = '';
         graph.addCell(clone!, cell.parent);
-        const edge = new Cell('', new Geometry(), toCellStyle(DEFAULT_EDGE_STYLE));
+        const edge = new Cell('', new Geometry(), toCellStyle(schematicConnectorStyle(cell, clone) ?? DEFAULT_EDGE_STYLE));
         edge.edge = true;
         edge.geometry!.relative = true;
         graph.addEdge(edge, cell.parent, cell, clone!);

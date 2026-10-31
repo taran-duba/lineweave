@@ -66,6 +66,15 @@ body {
   outline: none;
   touch-action: none;
 }
+/* Pan cursors win over the per-shape cursors maxGraph sets. */
+.graph-canvas.space-panning,
+.graph-canvas.space-panning * {
+  cursor: grab !important;
+}
+.graph-canvas.is-panning,
+.graph-canvas.is-panning * {
+  cursor: grabbing !important;
+}
 /* Page view: the paper (PageLayer, behind) carries the color and grid. */
 .graph-canvas.page-view {
   background-color: transparent !important;

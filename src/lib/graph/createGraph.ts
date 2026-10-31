@@ -22,6 +22,7 @@ import { DEFAULT_EDGE_STYLE } from './palette';
 import { installChildLayouts } from './childLayouts';
 import { installDarkCanvas } from './darkCanvas';
 import { installLineJumps } from './lineJumps';
+import { schematicConnectorStyle } from './wires';
 import { applyDrawioStylesheet, registerDrawioShapes } from './shapes';
 
 export const MIN_SCALE = 0.1;
@@ -85,13 +86,33 @@ const POINT_IMAGE = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><path d="M2 2 8 8M8 2 2 8" stroke="#2f6fed" stroke-width="1.6"/></svg>',
 )}`;
 
+/**
+ * draw.io's `points=[[x,y,perimeter,dx,dy],...]` style: fixed connection points
+ * (`points=[]` means none). Returns null when absent or unreadable.
+ */
+export function parsePointsStyle(raw: unknown): ConnectionConstraint[] | null {
+  if (typeof raw !== 'string') return null;
+  try {
+    const list = JSON.parse(raw) as unknown;
+    if (!Array.isArray(list)) return null;
+    return list
+      .filter((p): p is number[] => Array.isArray(p) && p.length >= 2 && p.every((n) => typeof n === 'number'))
+      .map(([x, y, perimeter = 1, dx = 0, dy = 0]) => new ConnectionConstraint(new Point(x, y), perimeter !== 0, null, dx, dy));
+  } catch {
+    return null;
+  }
+}
+
 export function createGraph(container: HTMLElement): { graph: Graph; destroy: () => void } {
   // Default handle/folding images ship with maxGraph; we serve them from /public.
   Client.imageBasePath = '/maxgraph/images';
   registerDrawioShapes();
   configureSelectionStyle();
   InternalEvent.disableContextMenu(container);
+  const listenersBefore = new Set(listenersOf(container));
+  const nodesBefore = new Set(container.childNodes);
   const graph = new Graph(container, undefined, [...getDefaultPlugins(), RubberBandHandler]);
+  owners.set(container, graph);
   applyDrawioStylesheet(graph.getStylesheet());
 
   graph.setHtmlLabels(true);
@@ -106,10 +127,15 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
   // Clicking outside the in-place text editor commits the edit (draw.io behavior).
   graph.setInvokesStopCellEditing(true);
 
-  graph.getAllConnectionConstraints = (terminal) =>
-    terminal?.cell?.isVertex() && !terminal.cell.isEdge()
-      ? CONNECTION_POINTS.map(([x, y]) => new ConnectionConstraint(new Point(x, y), true))
-      : null;
+  // Same precedence as draw.io: the `points` style, then the stencil's own terminals, then the defaults.
+  graph.getAllConnectionConstraints = (terminal) => {
+    if (!terminal?.cell?.isVertex()) return null;
+    const stencil = terminal.shape?.stencil?.constraints;
+    return (
+      parsePointsStyle((terminal.style as Record<string, unknown>).points) ??
+      (stencil?.length ? stencil : CONNECTION_POINTS.map(([x, y]) => new ConnectionConstraint(new Point(x, y), true)))
+    );
+  };
 
   const baseStyle = graph.getCellStyle.bind(graph);
   graph.getCellStyle = (cell) => {
@@ -134,8 +160,8 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
     // Hover/target highlights in the same blue as selection (maxGraph defaults to green).
     connection.constraintHandler.highlightColor = SELECTION_BLUE;
     connection.marker.validColor = SELECTION_BLUE;
-    connection.factoryMethod = () => {
-      const edge = new Cell('', new Geometry(), toCellStyle(DEFAULT_EDGE_STYLE));
+    connection.factoryMethod = (source, target) => {
+      const edge = new Cell('', new Geometry(), toCellStyle(schematicConnectorStyle(source, target) ?? DEFAULT_EDGE_STYLE));
       edge.edge = true;
       edge.geometry!.relative = true;
       return edge;
@@ -148,15 +174,50 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
     installChildLayouts(graph),
     installGridBackground(graph),
     installWheelNavigation(graph),
-    installSpacePanning(graph),
+    installPanning(graph),
   ];
+  const ownListeners = listenersOf(container).filter((l) => !listenersBefore.has(l));
+  const ownNodes = [...container.childNodes].filter((n) => !nodesBefore.has(n));
   return {
     graph,
     destroy: () => {
       cleanups.forEach((fn) => fn());
-      graph.destroy();
+      if (owners.get(container) === graph) {
+        owners.delete(container);
+        graph.destroy();
+      } else {
+        destroySharingContainer(graph, ownListeners, ownNodes);
+      }
     },
   };
+}
+
+type ListenerEntry = { name: string; f: EventListener };
+const listenersOf = (el: HTMLElement): ListenerEntry[] =>
+  [...((el as HTMLElement & { mxListenerList?: ListenerEntry[] }).mxListenerList ?? [])];
+
+/** The graph most recently created on each container. */
+const owners = new WeakMap<HTMLElement, Graph>();
+
+/**
+ * React remounts the canvas on the same element (Strict Mode, page or
+ * read-only changes) and destroys the old graph afterwards. maxGraph's teardown
+ * releases every listener on the container and its children, which would cut
+ * the new graph off from all mouse input, so only release what this graph added.
+ */
+function destroySharingContainer(graph: Graph, listeners: ListenerEntry[], nodes: ChildNode[]): void {
+  const container = graph.container;
+  const release = InternalEvent.release;
+  InternalEvent.release = (el) => {
+    if (el !== container) return release(el);
+    listeners.forEach((l) => InternalEvent.removeListener(container, l.name, l.f));
+    nodes.forEach((n) => release(n as Element));
+  };
+  try {
+    graph.destroy();
+  } finally {
+    InternalEvent.release = release;
+  }
 }
 
 const gridUpdaters = new WeakMap<Graph, () => void>();
@@ -205,17 +266,21 @@ function installWheelNavigation(graph: Graph): () => void {
     e.preventDefault();
     const view = graph.view;
     const { scale, translate } = view;
+    // Firefox reports mouse wheels in lines (or pages) rather than pixels.
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? container.clientHeight : 1;
+    const deltaX = e.deltaX * unit;
+    const deltaY = e.deltaY * unit;
     if (e.ctrlKey || e.metaKey) {
       const rect = container.getBoundingClientRect();
       const px = e.clientX - rect.left;
       const py = e.clientY - rect.top;
-      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * Math.exp(-e.deltaY * 0.01)));
+      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * Math.exp(-deltaY * 0.01)));
       const tx = px / next - (px / scale - translate.x);
       const ty = py / next - (py / scale - translate.y);
       view.scaleAndTranslate(next, tx, ty);
     } else {
-      const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
-      const dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY;
+      const dx = e.shiftKey && !deltaX ? deltaY : deltaX;
+      const dy = e.shiftKey && !deltaX ? 0 : deltaY;
       view.setTranslate(translate.x - dx / scale, translate.y - dy / scale);
     }
   };
@@ -223,28 +288,70 @@ function installWheelNavigation(graph: Graph): () => void {
   return () => container.removeEventListener('wheel', onWheel);
 }
 
-/** Hold space and drag with the left button to pan, like most canvas apps. */
-function installSpacePanning(graph: Graph): () => void {
+/**
+ * Right-drag (or Space + drag) pans. The view is translated live on every
+ * move instead of using maxGraph's CSS-transform preview, which left the grid,
+ * page and collaborator cursors behind until release, never committed a purely
+ * horizontal or vertical drag, and stayed shifted if released off the canvas.
+ */
+function installPanning(graph: Graph): () => void {
   const panning = graph.getPlugin<PanningHandler>('PanningHandler');
   if (!panning) return () => {};
-  const isTyping = (t: EventTarget | null) =>
-    t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
-  const set = (on: boolean) => {
+  const container = graph.container;
+  panning.minScale = MIN_SCALE;
+  panning.maxScale = MAX_SCALE;
+  panning.previewEnabled = false;
+  // Already applied live below; the handler's own commit on mouse up would double it.
+  panning.panGraph = () => {};
+
+  let applied = { x: 0, y: 0 };
+  const onStart = () => {
+    applied = { x: 0, y: 0 };
+    container.classList.add('is-panning');
+  };
+  const onPan = () => {
+    const { view } = graph;
+    const ddx = panning.dx - applied.x;
+    const ddy = panning.dy - applied.y;
+    applied = { x: panning.dx, y: panning.dy };
+    if (ddx || ddy) view.setTranslate(view.translate.x + ddx / view.scale, view.translate.y + ddy / view.scale);
+  };
+  const onEnd = () => container.classList.remove('is-panning');
+  panning.addListener(InternalEvent.PAN_START, onStart);
+  panning.addListener(InternalEvent.PAN, onPan);
+  panning.addListener(InternalEvent.PAN_END, onEnd);
+  // Releasing outside the canvas resets the handler without a PAN_END.
+  window.addEventListener('mouseup', onEnd);
+
+  // Space held: left-drag pans, even over shapes.
+  const ignoresSpace = (t: EventTarget | null) =>
+    t instanceof HTMLElement &&
+    (t.isContentEditable ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) ||
+      !!t.closest('[role="dialog"], [role="menu"], [role="listbox"]'));
+  const setSpace = (on: boolean) => {
     panning.useLeftButtonForPanning = on;
     panning.ignoreCell = on;
-    graph.container.style.cursor = on ? 'grab' : '';
+    container.classList.toggle('space-panning', on);
   };
   const down = (e: KeyboardEvent) => {
-    if (e.code === 'Space' && !isTyping(e.target) && !graph.isEditing()) {
-      e.preventDefault();
-      set(true);
-    }
+    if (e.code !== 'Space' || ignoresSpace(e.target) || graph.isEditing()) return;
+    e.preventDefault();
+    if (!e.repeat) setSpace(true);
   };
-  const up = (e: KeyboardEvent) => e.code === 'Space' && set(false);
+  const up = (e: KeyboardEvent) => e.code === 'Space' && setSpace(false);
+  // Switching windows while holding Space never delivers the keyup.
+  const blur = () => setSpace(false);
   window.addEventListener('keydown', down);
   window.addEventListener('keyup', up);
+  window.addEventListener('blur', blur);
   return () => {
+    panning.removeListener(onStart);
+    panning.removeListener(onPan);
+    panning.removeListener(onEnd);
+    window.removeEventListener('mouseup', onEnd);
     window.removeEventListener('keydown', down);
     window.removeEventListener('keyup', up);
+    window.removeEventListener('blur', blur);
   };
 }

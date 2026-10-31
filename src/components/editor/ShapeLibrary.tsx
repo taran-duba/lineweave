@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Plus, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { Graph, Point, type Cell } from '@maxgraph/core';
-import { toCellStyle } from '@/lib/drawio/style';
+import { getStyleValue, toCellStyle } from '@/lib/drawio/style';
 import { DEFAULT_LIBRARIES, PALETTES, type PaletteItem } from '@/lib/graph/palette';
 import { installDarkCanvas } from '@/lib/graph/darkCanvas';
 import { applyDrawioStylesheet, registerDrawioShapes } from '@/lib/graph/shapes';
@@ -83,7 +83,8 @@ export function ShapeLibrary() {
     const q = query.trim().toLowerCase();
     // Searching looks through every library, not just the ones shown.
     if (q) {
-      return PALETTES.map((s) => ({ ...s, items: s.items.filter((i) => i.title.toLowerCase().includes(q)) })).filter((s) => s.items.length);
+      const matches = (i: PaletteItem) => `${i.title} ${i.tags ?? ''}`.toLowerCase().includes(q);
+      return PALETTES.map((s) => ({ ...s, items: s.items.filter(matches) })).filter((s) => s.items.length);
     }
     return PALETTES.filter((s) => enabled.includes(s.id));
   }, [query, enabled]);
@@ -116,7 +117,7 @@ export function ShapeLibrary() {
                 {section.title}
               </button>
               {open && (
-                <div className="grid grid-cols-4 gap-1 px-2 pb-2">
+                <div className={clsx('px-2 pb-2', section.list ? 'flex flex-col' : 'grid grid-cols-4 gap-1')}>
                   {section.items.map((item) => (
                     <button
                       key={item.id}
@@ -130,9 +131,26 @@ export function ShapeLibrary() {
                         e.dataTransfer.effectAllowed = 'copy';
                       }}
                       onClick={() => canvas?.actions.insert(item)}
-                      className="flex h-12 items-center justify-center rounded-md hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-40"
+                      className={clsx(
+                        'flex items-center rounded-md hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-40',
+                        section.list ? 'h-10 gap-1 text-left text-[13px]' : 'h-12 justify-center',
+                      )}
                     >
-                      <ShapePreview item={item} />
+                      {section.list ? (
+                        <>
+                          {getStyleValue(item.style, 'fillColor')?.startsWith('#') ? (
+                            <span
+                              className="mx-1.5 h-5 w-7 shrink-0 rounded-sm border"
+                              style={{ background: getStyleValue(item.style, 'fillColor'), borderColor: getStyleValue(item.style, 'strokeColor') }}
+                            />
+                          ) : (
+                            <ShapePreview item={item} />
+                          )}
+                          <span className="min-w-0 truncate">{item.title}</span>
+                        </>
+                      ) : (
+                        <ShapePreview item={item} />
+                      )}
                     </button>
                   ))}
                 </div>

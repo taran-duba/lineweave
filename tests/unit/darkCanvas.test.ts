@@ -43,4 +43,14 @@ describe('adaptStyleForDark', () => {
     adapt(edge(), style);
     expect(style.strokeColor).toBe('#000000');
   });
+
+  it('draws electrical symbols as light line art', () => {
+    expect(adapt(vertex(), { shape: 'mxgraph.electrical.resistors.resistor_2', strokeColor: '#000000', fillColor: '#ffffff' })).toMatchObject({
+      strokeColor: '#dedede',
+      fillColor: '#000000',
+    });
+    // Junction dots and diodes fill with their stroke color, so they follow it.
+    expect(adapt(vertex(), { shape: 'ellipse', strokeColor: '#000000', fillColor: 'strokeColor' })).toMatchObject({ strokeColor: '#dedede' });
+    expect(adapt(vertex(), { shape: 'mxgraph.electrical.resistors.resistor_2', strokeColor: '#b85450' })).toMatchObject({ strokeColor: '#b85450' });
+  });
 });

@@ -13,12 +13,16 @@ export interface PaletteItem {
   edge?: boolean;
   /** A multi-cell item (e.g. a UML class with rows), as an <mxGraphModel> snippet. */
   xml?: string;
+  /** Extra words search matches (part numbers, synonyms). */
+  tags?: string;
 }
 
 export interface PaletteSection {
   id: string;
   title: string;
   items: PaletteItem[];
+  /** Show items as named rows rather than a grid of previews (blocks that look alike). */
+  list?: boolean;
 }
 
 /** draw.io's default style for connections drawn between shapes. */

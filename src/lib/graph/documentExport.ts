@@ -12,7 +12,7 @@ export const backgroundOf = (page: YPage | undefined) =>
 
 /** Every page as a PDF page (vector; plain-text labels). */
 export async function documentToPdf(doc: Y.Doc): Promise<Blob> {
-  const pages = await mapPages(doc, (g, p) => ({ svg: withTrueColors(g, () => renderSvg(g, { html: false, background: backgroundOf(p) })) }));
+  const pages = await mapPages(doc, (g, p) => ({ svg: withTrueColors(g, () => renderSvg(g, { html: 'flatten', background: backgroundOf(p) })) }));
   return exportPdf(pages);
 }
 

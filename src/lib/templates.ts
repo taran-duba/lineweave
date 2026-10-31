@@ -1,3 +1,4 @@
+import { frcWiringTemplate } from '@/lib/frcTemplate';
 import { edge, file, stack, vertex } from '@/lib/graph/palettes/snippet';
 
 /** Starting points for a new diagram, as real draw.io files (so they open in diagrams.net too). */
@@ -20,6 +21,12 @@ const PURPLE: [string, string] = ['#e1d5e7', '#9673a6'];
 
 export const TEMPLATES: Template[] = [
   { id: 'blank', name: 'Blank diagram', description: 'Start with an empty page.', build: () => file('Page-1') },
+  {
+    id: 'frc-wiring',
+    name: 'FRC robot wiring',
+    description: 'Battery, PDH, roboRIO, radio and CAN motor controllers, wired with FRC colors.',
+    build: frcWiringTemplate,
+  },
   {
     id: 'flowchart',
     name: 'Flowchart',

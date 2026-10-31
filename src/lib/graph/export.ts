@@ -1,13 +1,17 @@
 import { ImageExport, SvgCanvas2D, type Graph } from '@maxgraph/core';
 import { embedXmlInPng } from '@/lib/drawio/embed';
 import { withTrueColors } from './darkCanvas';
+import { flattenHtmlLabels } from './flattenLabels';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export interface SvgOptions {
   border?: number;
-  /** Rich (HTML) labels via foreignObject; off for raster/PDF output, which can't render them. */
-  html?: boolean;
+  /**
+   * Rich (HTML) labels via foreignObject (true), or laid out by the browser and
+   * converted to SVG text ('flatten') for raster/PDF output, which can't render foreignObject.
+   */
+  html?: boolean | 'flatten';
   background?: string;
   /** .drawio XML to embed, making the SVG re-editable in this app and diagrams.net. */
   embedXml?: string;
@@ -37,17 +41,17 @@ export function renderSvg(graph: Graph, { border = 10, html = true, background =
   svg.appendChild(root);
 
   const canvas = new SvgCanvas2D(root, false);
-  canvas.foEnabled = html;
+  canvas.foEnabled = !!html;
   canvas.translate(Math.floor(border - bounds.x / s), Math.floor(border - bounds.y / s));
   canvas.scale(1 / s);
   const state = view.getState(graph.getDataModel().root!);
   if (state) new ImageExport().drawState(state, canvas);
-  return svg;
+  return html === 'flatten' ? flattenHtmlLabels(svg) : svg;
 }
 
 async function rasterize(graph: Graph, type: 'image/png' | 'image/jpeg', scale: number, background: string): Promise<Blob> {
-  // Plain-text labels: an SVG with foreignObject would taint the canvas.
-  const svg = exportSvg(graph, { html: false, background });
+  // No foreignObject: it would taint the canvas.
+  const svg = exportSvg(graph, { html: 'flatten', background });
   const img = new Image();
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   await img.decode();
@@ -78,6 +82,18 @@ export function exportJpeg(graph: Graph, { scale = 2, background = '#ffffff' } =
   return rasterize(graph, 'image/jpeg', scale, background);
 }
 
+// The PDF's built-in fonts only cover Windows-1252; spell out common symbols they lack.
+const PDF_FALLBACKS: Record<string, string> = { 'Ω': ' ohm', 'Δ': 'delta', '→': '->', '←': '<-', '↑': '^', '↓': 'v', '≤': '<=', '≥': '>=', '≈': '~', '−': '-', '✓': 'v' };
+const WIN_1252_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
+
+function pdfSafeText(svg: SVGSVGElement): void {
+  for (const t of Array.from(svg.getElementsByTagName('text'))) {
+    const text = t.textContent ?? '';
+    const safe = Array.from(text, (ch) => (ch.charCodeAt(0) < 256 || WIN_1252_EXTRA.has(ch) ? ch : (PDF_FALLBACKS[ch] ?? '?'))).join('').replace(/ {2,}/g, ' ');
+    if (safe !== text) t.textContent = safe;
+  }
+}
+
 /** A vector PDF with one page per diagram page, each sized to its content. */
 export async function exportPdf(pages: { svg: SVGSVGElement }[]): Promise<Blob> {
   const [{ jsPDF }] = await Promise.all([import('jspdf'), import('svg2pdf.js')]);
@@ -87,6 +103,7 @@ export async function exportPdf(pages: { svg: SVGSVGElement }[]): Promise<Blob> 
   for (let i = 0; i < pages.length; i++) {
     const [w, h] = size(pages[i].svg);
     if (i > 0) pdf.addPage([w, h], w > h ? 'landscape' : 'portrait');
+    pdfSafeText(pages[i].svg);
     await pdf.svg(pages[i].svg, { x: 0, y: 0, width: w, height: h });
   }
   return pdf.output('blob');
