@@ -141,6 +141,15 @@ export function createActions(graph: Graph, undoManager: Y.UndoManager, binding:
       const x = Math.round((p.x - item.width / 2) / graph.gridSize) * graph.gridSize;
       const y = Math.round((p.y - item.height / 2) / graph.gridSize) * graph.gridSize;
       const parent = graph.getDefaultParent();
+      if (item.xml) {
+        // A multi-cell item (class, table, ...): paste its cells, positioned at the drop point.
+        const cells = cellsFromText(item.xml);
+        if (!cells?.length) return null;
+        const ids = insertCopies(binding, cells, parent.id!, x, y);
+        const pasted = ids.flatMap((id) => graph.getDataModel().getCell(id) ?? []);
+        graph.setSelectionCells(pasted);
+        return pasted[0] ?? null;
+      }
       const style = toCellStyle(item.style);
       let cell: Cell;
       graph.batchUpdate(() => {

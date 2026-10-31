@@ -7,15 +7,11 @@ export type Win = Window & {
   __firebase?: { auth: { currentUser: { uid: string } | null } };
 };
 
-/** Answers for the next "Name your diagram" prompt, per page. */
-export const diagramNames = new WeakMap<Page, string>();
-
 export async function signIn(browser: Browser, name: string): Promise<Page> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   page.on('dialog', (d) => {
     if (d.message().includes('Test user')) return d.accept(name);
-    if (d.message().includes('Name your diagram')) return d.accept(diagramNames.get(page) ?? 'Untitled');
     return d.accept();
   });
   await page.goto('/');
@@ -51,9 +47,11 @@ export async function stubFile(page: Page, fileId: string): Promise<string> {
 
 
 /** Signs in, creates a diagram named `name` and opens it; returns its URL and Drive file id. */
-export async function newDiagram(page: Page, name: string): Promise<{ url: string; fileId: string }> {
-  diagramNames.set(page, name);
+export async function newDiagram(page: Page, name: string, template?: string): Promise<{ url: string; fileId: string }> {
   await page.getByRole('button', { name: 'New diagram' }).click();
+  await page.getByRole('dialog', { name: 'New diagram' }).getByRole('textbox').fill(name);
+  if (template) await page.getByRole('radio', { name: new RegExp(`^${template}`) }).click();
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
   await page.waitForURL(/\/d\/\w+/);
   const url = page.url();
   await openDiagram(page, url);

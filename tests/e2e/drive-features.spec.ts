@@ -71,3 +71,10 @@ test('import a file from the files page as a new Drive diagram', async ({ browse
   await expect.poll(() => vertexLabels(alice)).toEqual(['Build', 'Plan', 'Ship']);
   await expect(alice.getByLabel('Diagram name')).toHaveValue('flow');
 });
+
+test('create a diagram from a template', async ({ browser }) => {
+  const alice = await signIn(browser, 'Alice Adams');
+  await newDiagram(alice, 'Team chart', 'Org chart');
+  await expect.poll(() => vertexLabels(alice)).toHaveLength(6);
+  await expect(alice.getByLabel('Diagram name')).toHaveValue('Team chart');
+});

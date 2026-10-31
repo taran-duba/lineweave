@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { FileText, FileUp, FolderOpen, Loader2, LogOut, Plus, RefreshCw, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui';
-import { serializeDrawio, emptyFile } from '@/lib/drawio/codec';
+import { serializeDrawio } from '@/lib/drawio/codec';
+import { TEMPLATES } from '@/lib/templates';
+import { NewDiagramDialog } from './NewDiagramDialog';
 import { displayTitle } from '@/lib/collab/openRoom';
 import { IMPORT_ACCEPT, importFile } from '@/lib/drawio/importers';
 import { firebase } from '@/lib/firebase/client';
@@ -27,6 +29,7 @@ export default function FileBrowser() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => onAuthStateChanged(firebase().auth, setUser), []);
 
@@ -47,12 +50,11 @@ export default function FileBrowser() {
     else if (user) void refresh();
   }, [user, refresh, router]);
 
-  const create = async () => {
-    const name = prompt('Name your diagram', 'Untitled diagram')?.trim();
-    if (!name) return;
+  const create = async (name: string, templateId: string) => {
     setBusy(true);
     try {
-      const file = await createFile(`${name}.drawio`, serializeDrawio(emptyFile()));
+      const template = TEMPLATES.find((t) => t.id === templateId) ?? TEMPLATES[0];
+      const file = await createFile(`${name}.drawio`, template.build());
       router.push(`/d/${file.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -114,7 +116,7 @@ export default function FileBrowser() {
       </header>
       <main className="mx-auto max-w-4xl px-6 py-8">
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          <Button variant="primary" onClick={create} disabled={busy}>
+          <Button variant="primary" onClick={() => setCreating(true)} disabled={busy}>
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} New diagram
           </Button>
           <Button onClick={() => fileInput.current?.click()} disabled={busy}>
@@ -169,6 +171,7 @@ export default function FileBrowser() {
           in Google Drive and have the other person open it from Drive.
         </p>
       </main>
+      {creating && <NewDiagramDialog busy={busy} onCreate={create} onClose={() => !busy && setCreating(false)} />}
     </div>
   );
 }

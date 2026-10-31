@@ -7,6 +7,7 @@ import {
   type AbstractCanvas2D,
   type Stylesheet,
 } from '@maxgraph/core';
+import { registerExtraShapes } from './shapesExtra';
 
 /**
  * Registers the draw.io shape names used by our palettes (and common in
@@ -101,6 +102,7 @@ let registered = false;
 export function registerDrawioShapes(): void {
   if (registered) return;
   registered = true;
+  registerExtraShapes();
   for (const [name, ctor] of Object.entries(shapes)) ShapeRegistry.add(name, ctor);
   ShapeRegistry.add('cylinder3', CylinderShape);
   // draw.io-specific perimeters: approximate with built-ins so connections land sensibly.

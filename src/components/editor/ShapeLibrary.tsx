@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Search } from 'lucide-react';
+import { ChevronRight, Plus, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { Graph, Point, type Cell } from '@maxgraph/core';
 import { toCellStyle } from '@/lib/drawio/style';
-import { PALETTES, type PaletteItem } from '@/lib/graph/palette';
+import { DEFAULT_LIBRARIES, PALETTES, type PaletteItem } from '@/lib/graph/palette';
 import { installDarkCanvas } from '@/lib/graph/darkCanvas';
 import { applyDrawioStylesheet, registerDrawioShapes } from '@/lib/graph/shapes';
 import { PALETTE_MIME } from './Canvas';
@@ -51,17 +51,42 @@ function ShapePreview({ item }: { item: PaletteItem }) {
   return <div ref={ref} className="pointer-events-none h-10 w-10 overflow-hidden" />;
 }
 
+const LIBS_KEY = 'upgraded-drawio:libraries';
+
+function readLibraries(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(LIBS_KEY) ?? 'null') as unknown;
+    if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string' && PALETTES.some((p) => p.id === x));
+  } catch {
+    // Falls back to the defaults.
+  }
+  return DEFAULT_LIBRARIES;
+}
+
 export function ShapeLibrary() {
   const { canvas, session } = useEditor();
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [enabled, setEnabled] = useState<string[]>(readLibraries);
+  const [picking, setPicking] = useState(false);
+  const toggleLibrary = (id: string) =>
+    setEnabled((cur) => {
+      const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+      try {
+        localStorage.setItem(LIBS_KEY, JSON.stringify(next));
+      } catch {
+        // Remembering the choice is only a convenience.
+      }
+      return next;
+    });
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PALETTES;
-    return PALETTES.map((s) => ({ ...s, items: s.items.filter((i) => i.title.toLowerCase().includes(q)) })).filter(
-      (s) => s.items.length,
-    );
-  }, [query]);
+    // Searching looks through every library, not just the ones shown.
+    if (q) {
+      return PALETTES.map((s) => ({ ...s, items: s.items.filter((i) => i.title.toLowerCase().includes(q)) })).filter((s) => s.items.length);
+    }
+    return PALETTES.filter((s) => enabled.includes(s.id));
+  }, [query, enabled]);
   const disabled = session.readOnly;
 
   return (
@@ -115,6 +140,30 @@ export function ShapeLibrary() {
             </div>
           );
         })}
+        {!query && (
+          <div className="p-2">
+            <button
+              type="button"
+              onClick={() => setPicking((p) => !p)}
+              className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-[13px] text-muted hover:bg-panel-2 hover:text-text"
+              aria-expanded={picking}
+            >
+              <Plus size={14} /> More shapes
+            </button>
+            {picking && (
+              <ul className="mt-2 flex flex-col gap-0.5" aria-label="Shape libraries">
+                {PALETTES.map((p) => (
+                  <li key={p.id}>
+                    <label className="flex items-center gap-2 rounded px-2 py-1 text-[13px] hover:bg-panel-2">
+                      <input type="checkbox" checked={enabled.includes(p.id)} onChange={() => toggleLibrary(p.id)} className="accent-[var(--accent)]" />
+                      {p.title}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );

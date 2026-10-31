@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { diagramNames, openDiagram, signIn, stubFile, uidOf, vertexLabels } from './helpers';
+import { newDiagram, openDiagram, signIn, stubFile, uidOf, vertexLabels } from './helpers';
 
 /**
  * Two (or three) separate browser contexts = separate signed-in users, all
@@ -8,12 +8,7 @@ import { diagramNames, openDiagram, signIn, stubFile, uidOf, vertexLabels } from
 
 test('two people edit the same diagram in real time', async ({ browser }) => {
   const alice = await signIn(browser, 'Alice Adams');
-  diagramNames.set(alice, 'Team plan');
-  await alice.getByRole('button', { name: 'New diagram' }).click();
-  await alice.waitForURL(/\/d\/\w+/);
-  const url = alice.url();
-  const fileId = url.split('/d/')[1];
-  await openDiagram(alice, url);
+  const { url, fileId } = await newDiagram(alice, 'Team plan');
 
   const bob = await signIn(browser, 'Bob Brown');
   await openDiagram(bob, url);
@@ -73,12 +68,7 @@ test('two people edit the same diagram in real time', async ({ browser }) => {
 
 test('a late joiner loads the latest state after the leader leaves', async ({ browser }) => {
   const alice = await signIn(browser, 'Alice Adams');
-  diagramNames.set(alice, 'Handoff');
-  await alice.getByRole('button', { name: 'New diagram' }).click();
-  await alice.waitForURL(/\/d\/\w+/);
-  const url = alice.url();
-  const fileId = url.split('/d/')[1];
-  await openDiagram(alice, url);
+  const { url, fileId } = await newDiagram(alice, 'Handoff');
 
   const bob = await signIn(browser, 'Bob Brown');
   await openDiagram(bob, url);

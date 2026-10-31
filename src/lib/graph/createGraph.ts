@@ -19,6 +19,7 @@ import {
 } from '@maxgraph/core';
 import { toCellStyle } from '@/lib/drawio/style';
 import { DEFAULT_EDGE_STYLE } from './palette';
+import { installChildLayouts } from './childLayouts';
 import { installDarkCanvas } from './darkCanvas';
 import { installLineJumps } from './lineJumps';
 import { applyDrawioStylesheet, registerDrawioShapes } from './shapes';
@@ -144,6 +145,7 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
   const cleanups = [
     installDarkCanvas(graph),
     installLineJumps(graph),
+    installChildLayouts(graph),
     installGridBackground(graph),
     installWheelNavigation(graph),
     installSpacePanning(graph),
