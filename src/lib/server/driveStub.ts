@@ -16,6 +16,17 @@ export interface StubFile {
   owner: string;
   /** Per-user role overrides; anyone else gets `editor` (like a shared link). */
   roles: Record<string, 'editor' | 'viewer' | 'none'>;
+  revisions: { id: string; modifiedTime: string; content: string; by: string }[];
+  comments: StubComment[];
+}
+
+export interface StubComment {
+  id: string;
+  content: string;
+  createdTime: string;
+  resolved: boolean;
+  author: { displayName: string };
+  replies: { id: string; content: string; createdTime: string; action?: string; author: { displayName: string } }[];
 }
 
 const g = globalThis as unknown as { __driveStub?: Map<string, StubFile> };
@@ -44,7 +55,9 @@ export function stubMeta(file: StubFile, uid: string) {
   };
 }
 
-export function bumpRevision(file: StubFile): void {
+/** Records the current content as a new head revision, as Drive does on each upload. */
+export function bumpRevision(file: StubFile, by: string): void {
   file.headRevisionId = crypto.randomUUID();
   file.modifiedTime = new Date().toISOString();
+  file.revisions.push({ id: file.headRevisionId, modifiedTime: file.modifiedTime, content: file.content, by });
 }

@@ -110,3 +110,56 @@ export function sortedPageIds(doc: Y.Doc): string[] {
   pagesOf(doc).forEach((p, id) => entries.push([id, (p.get('order') as string) ?? 'a0']));
   return entries.sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[0] < b[0] ? -1 : 1)).map(([id]) => id);
 }
+
+/** A patch that sets every cell field to `cell`'s value (removing fields it doesn't have). */
+function fullCellPatch(cell: CellData): Partial<CellData> {
+  return Object.fromEntries(CELL_FIELDS.map((f) => [f, cell[f]])) as Partial<CellData>;
+}
+
+/**
+ * Makes the document equal to `file` by editing it in place: changed cells
+ * are updated, missing ones removed, new ones added. Unlike replacing pages
+ * wholesale, open canvases (and collaborators) receive precise changes and
+ * keep their bindings, and the sync update stays small.
+ */
+export function mergeFileIntoDoc(doc: Y.Doc, file: FileData, origin?: unknown): void {
+  doc.transact(() => {
+    const meta = fileMetaOf(doc);
+    if (!sameValue(meta.get('attrs'), file.attrs)) meta.set('attrs', file.attrs);
+    const pages = pagesOf(doc);
+    const keep = new Set(file.pages.map((p) => p.id));
+    for (const id of Array.from(pages.keys())) if (!keep.has(id)) pages.delete(id);
+    for (const p of file.pages) {
+      const yp = pages.get(p.id);
+      if (!yp) {
+        pages.set(p.id, pageToY(p));
+        continue;
+      }
+      for (const k of ['name', 'order', 'attrs', 'modelAttrs'] as const) {
+        if (!sameValue(yp.get(k), p[k])) yp.set(k, p[k]);
+      }
+      const cells = cellsOf(yp);
+      const ids = new Set(p.cells.map((c) => c.id));
+      for (const id of Array.from(cells.keys())) if (!ids.has(id)) cells.delete(id);
+      for (const c of p.cells) {
+        const m = cells.get(c.id);
+        if (m) writeCellFields(m, fullCellPatch(c));
+        else cells.set(c.id, cellToY(c));
+      }
+    }
+  }, origin);
+}
+
+const pageGenerations = new WeakMap<YPage, number>();
+let nextGeneration = 0;
+
+/** A stable id for this exact page object, so views can re-bind if a page is replaced wholesale. */
+export function pageInstanceKey(page: YPage | undefined): number {
+  if (!page) return -1;
+  let g = pageGenerations.get(page);
+  if (g === undefined) {
+    g = nextGeneration++;
+    pageGenerations.set(page, g);
+  }
+  return g;
+}

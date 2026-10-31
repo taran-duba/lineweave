@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { Cell, Geometry, GraphDataModel } from '@maxgraph/core';
 import { parseDrawio, serializeDrawio } from '@/lib/drawio/codec';
 import { getStyleValue } from '@/lib/drawio/style';
-import { docToFile, loadFileIntoDoc, pagesOf, sortedPageIds } from '@/lib/drawio/ydoc';
+import { docToFile, loadFileIntoDoc, mergeFileIntoDoc, pagesOf, sortedPageIds } from '@/lib/drawio/ydoc';
 import { YGraphBinding } from '@/lib/collab/yGraphBinding';
 import { toCellStyle } from '@/lib/drawio/style';
 
@@ -141,5 +141,28 @@ describe('YGraphBinding', () => {
     }
     undoA.redo();
     expect(t.mb.getCell(mine.id!)?.value).toBe('mine');
+  });
+});
+
+describe('mergeFileIntoDoc', () => {
+  it('updates an open page in place, so bound canvases follow', () => {
+    const t = setup();
+    const file = docToFile(t.a);
+    const page = file.pages[0];
+    // An "older version": start renamed and moved, child removed, a new shape added.
+    page.cells = page.cells
+      .filter((c) => c.id !== 'child')
+      .map((c) => (c.id === 'start' ? { ...c, value: 'Begin', geometry: { ...c.geometry, x: 5 } } : c));
+    page.cells.push({ id: 'new', parent: '1', value: 'New', vertex: true, order: 'a9', geometry: { x: 1, y: 2, width: 3, height: 4 } });
+    const pageMap = pagesOf(t.a).get(page.id);
+    mergeFileIntoDoc(t.a, file);
+    expect(pagesOf(t.a).get(page.id)).toBe(pageMap); // same Y object: bindings stay attached
+    for (const m of [t.ma, t.mb]) {
+      expect(m.getCell('start')?.value).toBe('Begin');
+      expect(m.getCell('start')?.geometry?.x).toBe(5);
+      expect(m.getCell('child')).toBeFalsy();
+      expect(m.getCell('new')?.value).toBe('New');
+    }
+    expect(docToFile(t.b)).toEqual(docToFile(t.a));
   });
 });

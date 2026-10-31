@@ -1,15 +1,25 @@
 import * as Y from 'yjs';
 import { child, get, serverTimestamp, update } from 'firebase/database';
 import { parseDrawio, serializeDrawio } from '@/lib/drawio/codec';
-import { loadFileIntoDoc } from '@/lib/drawio/ydoc';
+import { loadFileIntoDoc, mergeFileIntoDoc } from '@/lib/drawio/ydoc';
 import { firebase } from '@/lib/firebase/client';
 import { currentUser, getDriveToken, NotSignedInError } from '@/lib/google/auth';
-import { downloadFile, getFileMeta, renameFile } from '@/lib/google/drive';
+import {
+  addComment,
+  downloadFile,
+  downloadRevision,
+  getFileMeta,
+  listComments,
+  listRevisions,
+  renameFile,
+  replyToComment,
+  resolveComment,
+} from '@/lib/google/drive';
 import { createStore } from '@/lib/store';
 import { DriveSaver, hashXml, type RoomMeta } from './driveSaver';
 import { FirebasePresence } from './firebasePresence';
 import { FirebaseYProvider } from './firebaseYProvider';
-import type { EditorSession, Notice } from './session';
+import type { CommentsApi, EditorSession, Notice, VersionsApi } from './session';
 
 export const displayTitle = (name: string) => name.replace(/\.drawio$/i, '');
 const fileName = (title: string) => (/\.drawio$/i.test(title) ? title : `${title}.drawio`);
@@ -132,7 +142,7 @@ export async function openRoom(fileId: string, onStep: (step: string) => void, s
     const reloadFromDrive = async () => {
       const [meta, xml] = await Promise.all([getFileMeta(fileId), downloadFile(fileId)]);
       const parsed = parseDrawio(xml);
-      loadFileIntoDoc(doc, parsed);
+      mergeFileIntoDoc(doc, parsed);
       await update(child(provider.room, 'meta'), {
         driveHeadRevisionId: meta.headRevisionId ?? null,
         hash: await hashXml(serializeDrawio(parsed)),
@@ -140,7 +150,41 @@ export async function openRoom(fileId: string, onStep: (step: string) => void, s
       });
     };
 
+    const versions: VersionsApi = {
+      list: async () =>
+        (await listRevisions(fileId))
+          .map((r) => ({ id: r.id, modifiedTime: r.modifiedTime, author: r.lastModifyingUser?.displayName, size: Number(r.size) || undefined }))
+          .reverse(),
+      load: (revisionId) => downloadRevision(fileId, revisionId),
+      // Replaces everyone's document; autosave then writes it to Drive as a new revision.
+      restore: async (revisionId) => {
+        if (!canWrite) throw new Error('Only editors can restore a version.');
+        mergeFileIntoDoc(doc, parseDrawio(await downloadRevision(fileId, revisionId)));
+      },
+    };
+    const comments: CommentsApi = {
+      list: async () =>
+        (await listComments(fileId))
+          .filter((c) => !c.deleted)
+          .map((c) => ({
+            id: c.id,
+            author: c.author?.displayName ?? 'Someone',
+            photo: c.author?.photoLink,
+            content: c.content,
+            createdTime: c.createdTime,
+            resolved: c.resolved,
+            replies: (c.replies ?? [])
+              .filter((r) => !r.deleted && (r.content || r.action !== 'resolve'))
+              .map((r) => ({ id: r.id, author: r.author?.displayName ?? 'Someone', content: r.content ?? '', createdTime: r.createdTime })),
+          })),
+      add: (content) => addComment(fileId, content),
+      reply: (commentId, content) => replyToComment(fileId, commentId, content),
+      resolve: (commentId) => resolveComment(fileId, commentId),
+    };
+
     const session: EditorSession = {
+      versions,
+      comments,
       doc,
       readOnly: !canWrite,
       title,

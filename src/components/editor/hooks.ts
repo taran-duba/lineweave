@@ -28,6 +28,8 @@ export interface EditorContextValue {
   openDialog(request: DialogRequest): void;
   layersOpen: boolean;
   setLayersOpen(open: boolean): void;
+  commentsOpen: boolean;
+  setCommentsOpen(open: boolean): void;
 }
 
 export const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);

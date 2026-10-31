@@ -1,56 +1,10 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { diagramNames, openDiagram, signIn, stubFile, uidOf, vertexLabels } from './helpers';
 
 /**
  * Two (or three) separate browser contexts = separate signed-in users, all
  * editing the same Drive file through the Firebase emulators and Drive stub.
  */
-
-type Win = Window & {
-  __canvas?: { graph: { getDataModel(): { getCell(id: string): unknown; cells: Record<string, { value?: unknown; isVertex(): boolean }> } } };
-  __firebase?: { auth: { currentUser: { uid: string } | null } };
-};
-
-/** Answers for the next "Name your diagram" prompt, per page. */
-const diagramNames = new WeakMap<Page, string>();
-
-async function signIn(browser: Browser, name: string): Promise<Page> {
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  page.on('dialog', (d) => {
-    if (d.message().includes('Test user')) return d.accept(name);
-    if (d.message().includes('Name your diagram')) return d.accept(diagramNames.get(page) ?? 'Untitled');
-    return d.accept();
-  });
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Sign in with Google' }).click();
-  await page.waitForURL('**/files');
-  return page;
-}
-
-async function openDiagram(page: Page, url: string) {
-  await page.goto(url);
-  await expect(page.getByTestId('graph-canvas')).toBeVisible();
-  await page.waitForFunction(() => !!(window as Win).__canvas);
-}
-
-const vertexLabels = (page: Page) =>
-  page.evaluate(() => {
-    const cells = (window as Win).__canvas!.graph.getDataModel().cells;
-    return Object.values(cells)
-      .filter((c) => c.isVertex())
-      .map((c) => String(c.value ?? ''))
-      .sort();
-  });
-
-const uidOf = (page: Page) => page.evaluate(() => (window as Win).__firebase!.auth.currentUser!.uid);
-
-async function stubFile(page: Page, fileId: string): Promise<string> {
-  const uid = await uidOf(page);
-  const res = await page.request.get(`/api/dev/drive/v3/files/${fileId}?alt=media`, {
-    headers: { Authorization: `Bearer stub:${uid}` },
-  });
-  return res.text();
-}
 
 test('two people edit the same diagram in real time', async ({ browser }) => {
   const alice = await signIn(browser, 'Alice Adams');

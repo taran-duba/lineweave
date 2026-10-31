@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { EditorSession } from '@/lib/collab/session';
 import { printDocument } from '@/lib/graph/documentExport';
-import { pagesOf, sortedPageIds } from '@/lib/drawio/ydoc';
+import { pageInstanceKey, pagesOf, sortedPageIds } from '@/lib/drawio/ydoc';
 import { Canvas } from './Canvas';
 import { CanvasContextMenu } from './CanvasContextMenu';
 import { EditDataDialog } from './dialogs/EditDataDialog';
 import { EditStyleDialog } from './dialogs/EditStyleDialog';
 import { FindPanel } from './dialogs/FindPanel';
 import { ImportDialog } from './dialogs/ImportDialog';
+import { VersionsDialog } from './dialogs/VersionsDialog';
+import { CommentsPanel } from './CommentsPanel';
 import { InsertImageDialog } from './dialogs/InsertImageDialog';
 import { ShortcutsDialog } from './dialogs/ShortcutsDialog';
 import { LayersPanel } from './LayersPanel';
@@ -50,13 +52,24 @@ export function EditorShell({ session }: { session: EditorSession }) {
 
   const [dialog, setDialog] = useState<DialogRequest | null>(null);
   const [layersOpen, setLayersOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const closeDialog = useCallback(() => setDialog(null), []);
 
   const setPageId = useCallback((id: string) => setPageIdState(id), []);
   const liveCanvas = canvas?.pageId === validPageId ? canvas : null;
   const value = useMemo<EditorContextValue>(
-    () => ({ session, canvas: liveCanvas, pageId: validPageId, setPageId, openDialog: setDialog, layersOpen, setLayersOpen }),
-    [session, liveCanvas, validPageId, setPageId, layersOpen],
+    () => ({
+      session,
+      canvas: liveCanvas,
+      pageId: validPageId,
+      setPageId,
+      openDialog: setDialog,
+      layersOpen,
+      setLayersOpen,
+      commentsOpen,
+      setCommentsOpen,
+    }),
+    [session, liveCanvas, validPageId, setPageId, layersOpen, commentsOpen],
   );
 
   // Shortcuts that open panels and dialogs (editing shortcuts live in the canvas).
@@ -99,7 +112,7 @@ export function EditorShell({ session }: { session: EditorSession }) {
           {!session.readOnly && <ShapeLibrary />}
           <div className="flex min-w-0 flex-1 flex-col">
             <Canvas
-              key={validPageId}
+              key={`${validPageId}:${pageInstanceKey(pages.get(validPageId))}`}
               doc={session.doc}
               pageId={validPageId}
               readOnly={session.readOnly}
@@ -117,7 +130,11 @@ export function EditorShell({ session }: { session: EditorSession }) {
             </Canvas>
             <PageTabs />
           </div>
-          <FormatPanel />
+          {commentsOpen && session.comments ? (
+            <CommentsPanel comments={session.comments} onClose={() => setCommentsOpen(false)} />
+          ) : (
+            <FormatPanel />
+          )}
         </div>
       </div>
       {liveCanvas && dialog?.kind === 'style' && <EditStyleDialog canvas={liveCanvas} cellId={dialog.cellId} onClose={closeDialog} />}
@@ -125,6 +142,9 @@ export function EditorShell({ session }: { session: EditorSession }) {
       {liveCanvas && dialog?.kind === 'image' && <InsertImageDialog canvas={liveCanvas} onClose={closeDialog} />}
       {liveCanvas && dialog?.kind === 'import' && <ImportDialog canvas={liveCanvas} doc={session.doc} onClose={closeDialog} />}
       {dialog?.kind === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
+      {dialog?.kind === 'versions' && session.versions && (
+        <VersionsDialog versions={session.versions} readOnly={session.readOnly} onClose={closeDialog} />
+      )}
     </EditorContext.Provider>
   );
 }

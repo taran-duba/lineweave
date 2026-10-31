@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Workflow } from 'lucide-react';
+import { ExternalLink, MessageSquare, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { ExportMenu, FileMenu } from './FileMenus';
 import { PresenceAvatars } from './PresenceAvatars';
@@ -40,7 +40,7 @@ function TitleInput() {
 }
 
 export function TopBar() {
-  const { session } = useEditor();
+  const { session, commentsOpen, setCommentsOpen } = useEditor();
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-panel px-3">
       <Link href="/files" className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-white" title="All diagrams">
@@ -54,6 +54,11 @@ export function TopBar() {
       <SaveIndicator />
       <div className="flex-1" />
       <PresenceAvatars />
+      {session.comments && (
+        <Button variant={commentsOpen ? 'secondary' : 'ghost'} onClick={() => setCommentsOpen(!commentsOpen)} aria-pressed={commentsOpen}>
+          <MessageSquare size={14} /> Comments
+        </Button>
+      )}
       {session.driveUrl && (
         <a href={session.driveUrl} target="_blank" rel="noreferrer">
           <Button>

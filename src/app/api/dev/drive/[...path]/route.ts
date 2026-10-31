@@ -1,4 +1,4 @@
-import { bumpRevision, driveStubEnabled, stubFiles, stubMeta, stubRole, stubUid, type StubFile } from '@/lib/server/driveStub';
+import { bumpRevision, driveStubEnabled, stubFiles, stubMeta, stubRole, stubUid, type StubComment, type StubFile } from '@/lib/server/driveStub';
 
 /**
  * Fake Google Drive for local E2E tests. Mirrors the handful of v3 endpoints
@@ -26,8 +26,28 @@ function fileFor(id: string, uid: string): StubFile | Response {
 export async function GET(request: Request, ctx: Ctx) {
   const r = await resolve(request, ctx);
   if ('error' in r) return r.error;
-  const [v, files, id] = r.path;
+  const [v, files, id, sub, subId] = r.path;
   if (v !== 'v3' || files !== 'files') return err(404, 'Not found');
+  if (id && sub) {
+    const f = fileFor(id, r.uid);
+    if (f instanceof Response) return f;
+    if (sub === 'revisions' && !subId) {
+      return Response.json({
+        revisions: f.revisions.map((rev) => ({
+          id: rev.id,
+          modifiedTime: rev.modifiedTime,
+          size: String(rev.content.length),
+          lastModifyingUser: { displayName: rev.by },
+        })),
+      });
+    }
+    if (sub === 'revisions' && subId) {
+      const rev = f.revisions.find((x) => x.id === subId);
+      return rev ? new Response(rev.content, { headers: { 'Content-Type': 'application/xml' } }) : err(404, 'Revision not found');
+    }
+    if (sub === 'comments') return Response.json({ comments: f.comments });
+    return err(404, 'Not found');
+  }
   if (!id) {
     const list = [...stubFiles.values()].filter((f) => stubRole(f, r.uid) !== 'none').map((f) => stubMeta(f, r.uid));
     return Response.json({ files: list.sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime)) });
@@ -49,6 +69,25 @@ export async function POST(request: Request, ctx: Ctx) {
     f.roles[uid] = role;
     return Response.json({ ok: true });
   }
+  // Comments: POST v3/files/{id}/comments and v3/files/{id}/comments/{cid}/replies
+  if (r.path[0] === 'v3' && r.path[3] === 'comments') {
+    const f = fileFor(r.path[2], r.uid);
+    if (f instanceof Response) return f;
+    const body = (await request.json()) as { content?: string; action?: string };
+    const now = new Date().toISOString();
+    const author = { displayName: r.uid };
+    if (!r.path[4]) {
+      const c: StubComment = { id: crypto.randomUUID(), content: body.content ?? '', createdTime: now, resolved: false, author, replies: [] };
+      f.comments.push(c);
+      return Response.json({ id: c.id });
+    }
+    const c = f.comments.find((x) => x.id === r.path[4]);
+    if (!c) return err(404, 'Comment not found');
+    if (body.action === 'resolve') c.resolved = true;
+    const reply = { id: crypto.randomUUID(), content: body.content ?? '', createdTime: now, action: body.action, author };
+    c.replies.push(reply);
+    return Response.json({ id: reply.id });
+  }
   if (r.path.join('/') !== 'upload/v3/files') return err(404, 'Not found');
   const boundary = request.headers.get('content-type')?.match(/boundary=(.+)$/)?.[1];
   const raw = await request.text();
@@ -63,8 +102,10 @@ export async function POST(request: Request, ctx: Ctx) {
     modifiedTime: '',
     owner: r.uid,
     roles: {},
+    revisions: [],
+    comments: [],
   };
-  bumpRevision(file);
+  bumpRevision(file, r.uid);
   stubFiles.set(file.id, file);
   return Response.json(stubMeta(file, r.uid));
 }
@@ -80,7 +121,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
   if (stubRole(f, r.uid) !== 'editor') return err(403, 'The user does not have sufficient permissions for this file.');
   if (upload) {
     f.content = await request.text();
-    bumpRevision(f);
+    bumpRevision(f, r.uid);
   } else {
     const { name } = (await request.json()) as { name?: string };
     if (name) f.name = name;

@@ -99,3 +99,58 @@ export async function renameFile(id: string, name: string): Promise<DriveFile> {
   });
   return res.json();
 }
+
+// ---------------------------------------------------------------- revisions
+
+export interface DriveRevision {
+  id: string;
+  modifiedTime: string;
+  size?: string;
+  lastModifyingUser?: { displayName?: string };
+}
+
+export async function listRevisions(id: string): Promise<DriveRevision[]> {
+  const fields = 'revisions(id,modifiedTime,size,lastModifyingUser(displayName))';
+  const res = await call(`${API}/files/${encodeURIComponent(id)}/revisions?fields=${fields}&pageSize=200`);
+  return ((await res.json()) as { revisions?: DriveRevision[] }).revisions ?? [];
+}
+
+export async function downloadRevision(id: string, revisionId: string): Promise<string> {
+  const res = await call(`${API}/files/${encodeURIComponent(id)}/revisions/${encodeURIComponent(revisionId)}?alt=media`);
+  return res.text();
+}
+
+// ---------------------------------------------------------------- comments
+
+export interface DriveComment {
+  id: string;
+  content: string;
+  createdTime: string;
+  resolved?: boolean;
+  deleted?: boolean;
+  author?: { displayName?: string; photoLink?: string };
+  replies?: { id: string; content?: string; createdTime: string; deleted?: boolean; action?: string; author?: { displayName?: string } }[];
+}
+
+const COMMENT_FIELDS =
+  'id,content,createdTime,resolved,deleted,author(displayName,photoLink),replies(id,content,createdTime,deleted,action,author(displayName))';
+
+export async function listComments(id: string): Promise<DriveComment[]> {
+  const res = await call(`${API}/files/${encodeURIComponent(id)}/comments?fields=comments(${COMMENT_FIELDS})&pageSize=100`);
+  return ((await res.json()) as { comments?: DriveComment[] }).comments ?? [];
+}
+
+const postJson = (url: string, body: unknown) =>
+  call(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+export async function addComment(id: string, content: string): Promise<void> {
+  await postJson(`${API}/files/${encodeURIComponent(id)}/comments?fields=id`, { content });
+}
+
+export async function replyToComment(id: string, commentId: string, content: string): Promise<void> {
+  await postJson(`${API}/files/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}/replies?fields=id`, { content });
+}
+
+export async function resolveComment(id: string, commentId: string): Promise<void> {
+  await postJson(`${API}/files/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}/replies?fields=id`, { action: 'resolve' });
+}
