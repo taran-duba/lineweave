@@ -44,6 +44,40 @@ export interface Notice {
   action?: { label: string; run: () => void };
 }
 
+export interface Revision {
+  id: string;
+  modifiedTime: string;
+  author?: string;
+  size?: number;
+}
+
+/** Drive's revision history for the open file. */
+export interface VersionsApi {
+  list(): Promise<Revision[]>;
+  /** The revision's .drawio XML. */
+  load(revisionId: string): Promise<string>;
+  /** Replaces the shared document with that revision (for everyone). */
+  restore(revisionId: string): Promise<void>;
+}
+
+export interface Comment {
+  id: string;
+  author: string;
+  photo?: string;
+  content: string;
+  createdTime: string;
+  resolved?: boolean;
+  replies: { id: string; author: string; content: string; createdTime: string }[];
+}
+
+/** Drive comments on the open file. */
+export interface CommentsApi {
+  list(): Promise<Comment[]>;
+  add(content: string): Promise<void>;
+  reply(commentId: string, content: string): Promise<void>;
+  resolve(commentId: string): Promise<void>;
+}
+
 /** Everything the editor needs; the local demo and the Drive+Firebase room both provide one. */
 export interface EditorSession {
   doc: Y.Doc;
@@ -56,4 +90,6 @@ export interface EditorSession {
   /** Shown above the canvas, e.g. "This file changed in Drive". */
   notice?: Store<Notice | null>;
   driveUrl?: string;
+  versions?: VersionsApi;
+  comments?: CommentsApi;
 }

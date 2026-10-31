@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { EditorSession } from '@/lib/collab/session';
+import { printDocument } from '@/lib/graph/documentExport';
 import { pagesOf, sortedPageIds } from '@/lib/drawio/ydoc';
 import { Canvas } from './Canvas';
 import { CanvasContextMenu } from './CanvasContextMenu';
 import { EditDataDialog } from './dialogs/EditDataDialog';
 import { EditStyleDialog } from './dialogs/EditStyleDialog';
 import { FindPanel } from './dialogs/FindPanel';
+import { ImportDialog } from './dialogs/ImportDialog';
 import { InsertImageDialog } from './dialogs/InsertImageDialog';
 import { ShortcutsDialog } from './dialogs/ShortcutsDialog';
 import { LayersPanel } from './LayersPanel';
@@ -70,6 +72,10 @@ export function EditorShell({ session }: { session: EditorSession }) {
         setDialog(d);
       };
       if (key === 'f' && !e.shiftKey) open({ kind: 'find' });
+      else if (key === 'p' && !e.shiftKey) {
+        e.preventDefault();
+        void printDocument(session.doc, session.title.get()).catch((err) => alert(err instanceof Error ? err.message : String(err)));
+      }
       else if (key === '/') open({ kind: 'shortcuts' });
       else if (key === 'e' && !e.shiftKey && single && !session.readOnly) open({ kind: 'style', cellId: single });
       else if (key === 'm' && !e.shiftKey && single && !session.readOnly) open({ kind: 'data', cellId: single });
@@ -80,7 +86,7 @@ export function EditorShell({ session }: { session: EditorSession }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [liveCanvas, session.readOnly]);
+  }, [liveCanvas, session.readOnly, session.doc, session.title]);
 
   if (!validPageId) return null;
   return (
@@ -117,6 +123,7 @@ export function EditorShell({ session }: { session: EditorSession }) {
       {liveCanvas && dialog?.kind === 'style' && <EditStyleDialog canvas={liveCanvas} cellId={dialog.cellId} onClose={closeDialog} />}
       {liveCanvas && dialog?.kind === 'data' && <EditDataDialog canvas={liveCanvas} cellId={dialog.cellId} onClose={closeDialog} />}
       {liveCanvas && dialog?.kind === 'image' && <InsertImageDialog canvas={liveCanvas} onClose={closeDialog} />}
+      {liveCanvas && dialog?.kind === 'import' && <ImportDialog canvas={liveCanvas} doc={session.doc} onClose={closeDialog} />}
       {dialog?.kind === 'shortcuts' && <ShortcutsDialog onClose={closeDialog} />}
     </EditorContext.Provider>
   );

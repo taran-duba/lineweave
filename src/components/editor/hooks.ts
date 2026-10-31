@@ -18,7 +18,7 @@ export interface CanvasHandle {
 
 export type DialogRequest =
   | { kind: 'style' | 'data'; cellId: string }
-  | { kind: 'find' | 'image' | 'shortcuts' };
+  | { kind: 'find' | 'image' | 'shortcuts' | 'import' | 'versions' };
 
 export interface EditorContextValue {
   session: EditorSession;

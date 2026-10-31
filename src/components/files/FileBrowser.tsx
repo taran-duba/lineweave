@@ -1,13 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { FileText, FolderOpen, Loader2, LogOut, Plus, RefreshCw, Workflow } from 'lucide-react';
+import { FileText, FileUp, FolderOpen, Loader2, LogOut, Plus, RefreshCw, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { serializeDrawio, emptyFile } from '@/lib/drawio/codec';
 import { displayTitle } from '@/lib/collab/openRoom';
+import { IMPORT_ACCEPT, importFile } from '@/lib/drawio/importers';
 import { firebase } from '@/lib/firebase/client';
 import { driveStub, NotSignedInError, signOut } from '@/lib/google/auth';
 import { createFile, listDiagrams, type DriveFile } from '@/lib/google/drive';
@@ -25,6 +26,7 @@ export default function FileBrowser() {
   const [files, setFiles] = useState<DriveFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => onAuthStateChanged(firebase().auth, setUser), []);
 
@@ -51,6 +53,21 @@ export default function FileBrowser() {
     setBusy(true);
     try {
       const file = await createFile(`${name}.drawio`, serializeDrawio(emptyFile()));
+      router.push(`/d/${file.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  /** Creates a new Drive diagram from a file on this computer. */
+  const importLocal = async (local: File) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await importFile(local);
+      const base = local.name.replace(/\.(drawio\.(png|svg)|drawio|xml|png|svg|vsdx|csv|mmd|mermaid|txt)$/i, '') || 'Imported diagram';
+      const file = await createFile(`${base}.drawio`, serializeDrawio(data));
       router.push(`/d/${file.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -100,6 +117,20 @@ export default function FileBrowser() {
           <Button variant="primary" onClick={create} disabled={busy}>
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} New diagram
           </Button>
+          <Button onClick={() => fileInput.current?.click()} disabled={busy}>
+            <FileUp size={14} /> Import a file
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept={IMPORT_ACCEPT}
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void importLocal(f);
+            }}
+          />
           {!driveStub && (
             <Button onClick={open}>
               <FolderOpen size={14} /> Open from Drive

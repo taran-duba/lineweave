@@ -3,6 +3,7 @@ import { parseDrawio, serializeModel, sortCellsForOutput } from '@/lib/drawio/co
 import type { CellData } from '@/lib/drawio/types';
 import { insertCopies, readCell } from '@/lib/collab/cellEdits';
 import type { YGraphBinding } from '@/lib/collab/yGraphBinding';
+import { pageContent } from './importInto';
 
 /**
  * Copy/paste as draw.io XML (a bare <mxGraphModel>), the same format
@@ -69,14 +70,10 @@ export function cellsFromText(text: string): CellData[] | null {
   }
   if (!t.startsWith('<mxGraphModel') && !t.startsWith('<mxfile')) return null;
   try {
-    const page = parseDrawio(t).pages[0];
-    const ids = new Set(page.cells.map((c) => c.id));
-    const root = page.cells.find((c) => !c.parent);
-    const layers = new Set(page.cells.filter((c) => c.parent === root?.id).map((c) => c.id));
-    // Drop the root and layers; their children become top-level.
-    return page.cells
-      .filter((c) => c !== root && !layers.has(c.id))
-      .map((c) => (c.parent && layers.has(c.parent)) || !c.parent || !ids.has(c.parent) ? { ...c, parent: undefined } : c);
+    const cells = pageContent(parseDrawio(t).pages[0].cells);
+    const ids = new Set(cells.map((c) => c.id));
+    // Anything whose parent didn't come along becomes top-level too.
+    return cells.map((c) => (c.parent && !ids.has(c.parent) ? { ...c, parent: undefined } : c));
   } catch {
     return null;
   }
