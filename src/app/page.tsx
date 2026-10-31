@@ -15,7 +15,7 @@ export default function Home() {
         <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-white">
           <Workflow size={17} />
         </span>
-        <span className="font-semibold">Upgraded draw.io</span>
+        <span className="font-semibold">Sketchwave</span>
       </header>
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">Diagrams your whole team can draw at once</h1>

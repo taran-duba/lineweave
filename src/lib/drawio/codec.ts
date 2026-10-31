@@ -150,7 +150,7 @@ export function emptyPage(name = 'Page-1', order = 'a0'): PageData {
 }
 
 export function emptyFile(): FileData {
-  return { attrs: { host: 'upgraded-draw-io' }, pages: [emptyPage()] };
+  return { attrs: { host: 'sketchwave' }, pages: [emptyPage()] };
 }
 
 /** Parses a .drawio file (or a bare <mxGraphModel>) into plain data. */

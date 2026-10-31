@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Upgraded draw.io",
+  title: { default: "Sketchwave", template: "%s · Sketchwave" },
   description: "Real-time collaborative diagramming that saves to Google Drive.",
 };
 
