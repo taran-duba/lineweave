@@ -2,6 +2,7 @@
 
 import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential, signOut as fbSignOut, type User } from 'firebase/auth';
 import { firebase } from '@/lib/firebase/client';
+import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
 import { loadScript } from './loadScript';
 
 /**
@@ -28,6 +29,29 @@ interface TokenResponse {
   idToken?: string;
   error?: string;
 }
+
+/** Rejects instead of hanging forever when a step never settles (blocked popup, dropped request). */
+function withTimeout<T>(p: Promise<T>, ms: number, message: string, onTimeout?: () => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => {
+      onTimeout?.();
+      reject(new Error(message));
+    }, ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
+const POPUP_TIMEOUT_MS = 120_000;
+const STEP_TIMEOUT_MS = 20_000;
 
 let cached: TokenResponse | null = null;
 let inflight: Promise<string> | null = null;
@@ -75,17 +99,32 @@ async function requestCode(): Promise<string> {
 export async function signInWithGoogle(): Promise<User> {
   const { auth } = firebase();
   if (driveStub) throw new Error('Use devSignIn() in stub mode');
-  const code = await requestCode();
-  const res = await fetch('/api/auth/google', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
-  });
-  const t = (await res.json()) as TokenResponse;
-  if (!res.ok || !t.idToken) throw new Error(t.error ?? 'Sign-in failed');
-  cached = t;
-  const cred = await signInWithCredential(auth, GoogleAuthProvider.credential(t.idToken));
-  return cred.user;
+  const code = await withTimeout(requestCode(), POPUP_TIMEOUT_MS, 'Sign-in timed out. Please try again.');
+  try {
+    const res = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+      signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
+    });
+    const t = (await res.json()) as TokenResponse;
+    if (!res.ok || !t.idToken) throw new Error(t.error ?? 'Sign-in failed');
+    cached = t;
+    const cred = await withTimeout(
+      signInWithCredential(auth, GoogleAuthProvider.credential(t.idToken)),
+      STEP_TIMEOUT_MS,
+      'Sign-in timed out. Please try again.',
+    );
+    return cred.user;
+  } catch (e) {
+    // The server may already have set the signed-in cookie; don't leave it behind on a failed sign-in.
+    cached = null;
+    clearSessionHint();
+    if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      throw new Error('Sign-in timed out. Please try again.');
+    }
+    throw e;
+  }
 }
 
 /** Test-only sign-in against the Firebase Auth emulator. */
@@ -95,6 +134,7 @@ export async function devSignIn(name: string): Promise<User> {
   const sub = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const idToken = JSON.stringify({ sub, email: `${sub}@example.test`, name, email_verified: true });
   const cred = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+  setSessionHint();
   return cred.user;
 }
 
@@ -124,6 +164,7 @@ export async function getDriveToken(): Promise<string> {
 export async function signOut(): Promise<void> {
   cached = null;
   if (!driveStub) await fetch('/api/auth/signout', { method: 'POST' }).catch(() => undefined);
+  clearSessionHint();
   await fbSignOut(firebase().auth);
 }
 

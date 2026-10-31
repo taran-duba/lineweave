@@ -42,8 +42,9 @@ function TitleInput() {
 export function TopBar() {
   const { session, commentsOpen, setCommentsOpen } = useEditor();
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-panel px-3">
-      <Link href="/files" className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-white" title="All diagrams">
+    <header className="relative flex h-12 shrink-0 items-center gap-2 border-b border-border bg-panel px-3">
+      <div className="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 bg-gradient-to-r from-teal-600 via-teal-500 to-orange-400 opacity-80" aria-hidden />
+      <Link href="/files" className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-teal-800 to-teal-600 text-white shadow-sm transition-transform hover:scale-105" title="All diagrams">
         <Workflow size={17} />
       </Link>
       <TitleInput />
