@@ -1,4 +1,4 @@
-# Sketchwave
+# Lineweave
 
 A modern, real-time collaborative take on draw.io, built with Next.js. Several people can edit the same diagram at
 once, see each other's cursors and selections live, and everything autosaves to Google Drive as a standard `.drawio`

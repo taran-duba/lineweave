@@ -1,5 +1,5 @@
 /** A small flowchart shown the first time someone opens the demo. */
-export const STARTER_DIAGRAM = `<mxfile host="sketchwave">
+export const STARTER_DIAGRAM = `<mxfile host="lineweave">
 <diagram id="starter" name="Page-1">
 <mxGraphModel grid="1" gridSize="10" guides="1" connect="1" arrows="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100">
 <root>

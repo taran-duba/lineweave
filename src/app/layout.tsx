@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Sketchwave", template: "%s · Sketchwave" },
+  title: { default: "Lineweave", template: "%s · Lineweave" },
   description: "Real-time collaborative diagramming that saves to Google Drive.",
 };
 
