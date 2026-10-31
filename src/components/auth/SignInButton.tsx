@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 /** Only same-site relative paths are accepted as a post-sign-in destination. */
@@ -30,7 +30,6 @@ export function SignInButton() {
 }
 
 function SignInButtonInner() {
-  const router = useRouter();
   const params = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +42,8 @@ function SignInButtonInner() {
       const { signInWithGoogle, devSignIn, driveStub } = await import('@/lib/google/auth');
       if (driveStub) await devSignIn(prompt('Test user name', 'Test User') ?? 'Test User');
       else await signInWithGoogle();
-      router.push(safeNext(params.get('next')));
+      // Full navigation: the server (proxy, cookies) sees the fresh session, and it can't stall like a client-side transition.
+      window.location.assign(safeNext(params.get('next')));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);

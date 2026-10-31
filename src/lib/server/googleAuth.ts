@@ -1,5 +1,6 @@
 import 'server-only';
 import { cookies } from 'next/headers';
+import { SESSION_HINT_COOKIE, SESSION_HINT_MAX_AGE } from '@/lib/sessionHint';
 
 /**
  * Google OAuth on the server. The browser gets an authorization code from
@@ -101,6 +102,12 @@ export async function exchangeCode(code: string): Promise<TokenResponse> {
       maxAge: MAX_AGE,
     });
   }
+  jar.set(SESSION_HINT_COOKIE, '1', {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_HINT_MAX_AGE,
+  });
   return { accessToken: t.access_token!, expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000, idToken: t.id_token };
 }
 
@@ -108,13 +115,17 @@ export async function refreshAccessToken(): Promise<TokenResponse> {
   const jar = await cookies();
   const sealed = jar.get(COOKIE)?.value;
   const refreshToken = sealed ? await unseal(sealed) : null;
-  if (!refreshToken) throw new AuthError('Not signed in');
+  if (!refreshToken) {
+    jar.delete({ name: SESSION_HINT_COOKIE, path: '/' });
+    throw new AuthError('Not signed in');
+  }
   try {
     const t = await tokenRequest({ refresh_token: refreshToken, grant_type: 'refresh_token' });
     return { accessToken: t.access_token!, expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000, idToken: t.id_token };
   } catch (e) {
     // invalid_grant: revoked or expired; force a fresh sign-in.
     jar.delete({ name: COOKIE, path: COOKIE_PATH });
+    jar.delete({ name: SESSION_HINT_COOKIE, path: '/' });
     throw new AuthError(e instanceof Error ? e.message : 'Session expired');
   }
 }
@@ -124,6 +135,7 @@ export async function signOut(): Promise<void> {
   const sealed = jar.get(COOKIE)?.value;
   const refreshToken = sealed ? await unseal(sealed) : null;
   jar.delete({ name: COOKIE, path: COOKIE_PATH });
+  jar.delete({ name: SESSION_HINT_COOKIE, path: '/' });
   if (refreshToken) {
     await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(refreshToken)}`, { method: 'POST' }).catch(
       () => undefined,

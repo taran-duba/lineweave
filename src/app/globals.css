@@ -8,8 +8,8 @@
   --border: #e3e6ea;
   --text: #16181d;
   --muted: #646b76;
-  --accent: #2f6fed;
-  --accent-soft: #e8effd;
+  --accent: #0f766e;
+  --accent-soft: #dcf3ef;
   --danger: #d93a3a;
   --canvas: #ffffff;
   --grid-minor: #eef0f3;
@@ -26,8 +26,8 @@
     --border: #2a2f37;
     --text: #e8eaee;
     --muted: #98a0ab;
-    --accent: #5b8cf5;
-    --accent-soft: #1e2a44;
+    --accent: #0d9488;
+    --accent-soft: #123430;
     --danger: #ef6464;
     /* Only the canvas backdrop goes dark; diagram colors are never changed. */
     --canvas: #000000;
@@ -49,7 +49,7 @@
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-canvas: var(--canvas);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans-body);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -57,7 +57,14 @@ html,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-sans-body), system-ui, sans-serif;
+}
+
+h1,
+h2,
+.font-display {
+  font-family: var(--font-display), var(--font-sans-body), system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* maxGraph injects its own elements; keep its in-place text editor readable. */
@@ -83,4 +90,125 @@ body {
 .graph-canvas div[contenteditable="true"] {
   outline: none;
   color: #000;
+}
+
+/* ---------- Landing page ---------- */
+.lw-gradient-text {
+  color: var(--accent);
+  background: linear-gradient(#f97316, #f97316) 0 94% / 0% 0.1em no-repeat;
+  padding-bottom: 0.04em;
+  animation: lw-underline 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.7s forwards;
+}
+.lw-panel { box-shadow: 0 24px 60px -32px rgba(15, 118, 110, 0.3); }
+.lw-cta {
+  background:
+    radial-gradient(60% 120% at 20% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent),
+    radial-gradient(50% 100% at 90% 100%, color-mix(in srgb, #f97316 16%, transparent), transparent),
+    var(--panel);
+}
+.lw-blob { position: absolute; border-radius: 9999px; filter: blur(70px); opacity: 0.35; pointer-events: none; }
+.lw-blob-a { width: 340px; height: 340px; left: -80px; top: -40px; background: var(--accent); }
+.lw-blob-b { width: 300px; height: 300px; right: -60px; top: 160px; background: #f97316; }
+
+/* hero diagram: draws itself in */
+.lw-node { opacity: 0; animation: lw-pop 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards; }
+.lw-edge { stroke-dasharray: 1; stroke-dashoffset: 1; animation: lw-draw 0.7s ease-out forwards; }
+.lw-cursor { opacity: 0; animation-fill-mode: forwards; animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-duration: 9s; animation-delay: 2.2s; }
+.lw-cursor-a { animation-name: lw-move-a; }
+.lw-cursor-b { animation-name: lw-move-b; animation-duration: 11s; animation-delay: 2.6s; }
+.lw-cursor-c { animation-name: lw-move-c; animation-duration: 10s; animation-delay: 3s; }
+.lw-select { opacity: 0; animation: lw-hop 9s ease-in-out 2.4s infinite; }
+
+/* showcase visuals */
+.lw-mini-a { animation-name: lw-mini-a; animation-delay: 0s; }
+.lw-mini-b { animation-name: lw-mini-b; animation-duration: 10s; animation-delay: 0.5s; }
+.lw-mini-c { animation-name: lw-mini-c; animation-duration: 12s; animation-delay: 1s; }
+.lw-select-a { animation: lw-blink 4s ease-in-out infinite; }
+.lw-select-b { animation: lw-blink 5s ease-in-out 1.2s infinite; }
+.lw-save-bar { animation: lw-save 4s ease-in-out infinite; }
+.lw-save-a { animation: lw-swap-a 4s infinite; }
+.lw-save-b { animation: lw-swap-b 4s infinite; }
+.lw-swap { animation: lw-spin 4s ease-in-out infinite; }
+
+/* spotlight card */
+.lw-spot { position: relative; overflow: hidden; transition: transform 0.3s ease, border-color 0.3s ease; }
+.lw-spot::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+}
+.lw-spot:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.lw-spot:hover::before { opacity: 1; }
+
+/* load-in */
+.lw-rise { opacity: 0; transform: translateY(18px); animation: lw-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+
+/* scroll reveals: hidden only when scripting runs, so no-JS users still see content */
+@media (scripting: enabled) {
+  [data-reveal] {
+    opacity: 0; transform: translateY(28px); filter: blur(6px);
+    transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms), transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms), filter 0.8s ease var(--d, 0ms);
+  }
+  [data-reveal][data-in] { opacity: 1; transform: none; filter: none; }
+}
+
+/* scroll-driven effects (progressive enhancement) */
+.lw-progress { display: none; }
+@supports (animation-timeline: scroll()) {
+  .lw-progress {
+    display: block; position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 40;
+    background: linear-gradient(90deg, var(--accent), #f97316);
+    transform-origin: 0 50%; animation: lw-grow linear both; animation-timeline: scroll(root);
+  }
+  .lw-hero-frame { transform-origin: 50% 100%; animation: lw-tilt linear both; animation-timeline: view(); animation-range: exit 0% exit 90%; }
+  .lw-blob-a { animation: lw-drift-a linear both; animation-timeline: scroll(root); animation-range: 0 900px; }
+  .lw-blob-b { animation: lw-drift-b linear both; animation-timeline: scroll(root); animation-range: 0 900px; }
+}
+
+@keyframes lw-nav { to { background: color-mix(in srgb, var(--bg) 80%, transparent); border-color: var(--border); } }
+@keyframes lw-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes lw-tilt { to { transform: rotateX(10deg) scale(0.9); opacity: 0.4; } }
+@keyframes lw-drift-a { to { transform: translate(120px, 260px); } }
+@keyframes lw-drift-b { to { transform: translate(-140px, 200px); } }
+@keyframes lw-rise { to { opacity: 1; transform: none; } }
+@keyframes lw-pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+@keyframes lw-draw { to { stroke-dashoffset: 0; } }
+@keyframes lw-underline { to { background-size: 100% 0.1em; } }
+@keyframes lw-hop {
+  0%, 100% { opacity: 0; transform: translate(0, 0); }
+  8%, 28% { opacity: 1; transform: translate(0, 0); }
+  36%, 58% { opacity: 1; transform: translate(180px, 0); }
+  66%, 88% { opacity: 1; transform: translate(60px, 114px); }
+}
+@keyframes lw-move-a {
+  0%, 100% { opacity: 1; transform: translate(250px, 70px); }
+  35% { opacity: 1; transform: translate(430px, 90px); }
+  70% { opacity: 1; transform: translate(300px, 200px); }
+}
+@keyframes lw-move-b {
+  0%, 100% { opacity: 1; transform: translate(90px, 190px); }
+  40% { opacity: 1; transform: translate(240px, 250px); }
+  75% { opacity: 1; transform: translate(70px, 100px); }
+}
+@keyframes lw-move-c {
+  0%, 100% { opacity: 1; transform: translate(450px, 200px); }
+  50% { opacity: 1; transform: translate(330px, 300px); }
+}
+@keyframes lw-mini-a { 0%, 100% { opacity: 1; transform: translate(150px, 55px); } 50% { opacity: 1; transform: translate(220px, 110px); } }
+@keyframes lw-mini-b { 0%, 100% { opacity: 1; transform: translate(60px, 120px); } 50% { opacity: 1; transform: translate(120px, 60px); } }
+@keyframes lw-mini-c { 0%, 100% { opacity: 1; transform: translate(240px, 40px); } 50% { opacity: 1; transform: translate(170px, 125px); } }
+@keyframes lw-blink { 0%, 100% { opacity: 0; } 20%, 70% { opacity: 1; } }
+@keyframes lw-save { 0% { width: 0; } 55%, 100% { width: 100%; } }
+@keyframes lw-swap-a { 0%, 55% { opacity: 1; } 65%, 95% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes lw-swap-b { 0%, 55% { opacity: 0; } 65%, 95% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes lw-spin { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(180deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lw-gradient-text { animation: none; background-size: 100% 0.1em; }
+  .lw-rise, .lw-node, .lw-edge, .lw-cursor, .lw-select, .lw-select-a, .lw-select-b, .lw-save-bar, .lw-save-a, .lw-save-b, .lw-swap {
+    animation: none !important; opacity: 1; transform: none; stroke-dashoffset: 0;
+  }
+  .lw-select, .lw-cursor, .lw-select-a, .lw-select-b { opacity: 0; }
+  .lw-save-a { opacity: 0; }
+  [data-reveal] { opacity: 1 !important; transform: none !important; filter: none !important; transition: none !important; }
+  .lw-progress, .lw-hero-frame, .lw-blob { animation: none !important; }
 }

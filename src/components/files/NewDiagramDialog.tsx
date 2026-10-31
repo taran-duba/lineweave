@@ -57,8 +57,8 @@ export function NewDiagramDialog({
             onClick={() => setTemplate(t.id)}
             onDoubleClick={submit}
             className={clsx(
-              'rounded-lg border p-3 text-left hover:bg-panel-2',
-              template === t.id ? 'border-accent bg-accent-soft' : 'border-border',
+              'rounded-lg border p-3 text-left transition-all hover:-translate-y-0.5 hover:bg-panel-2',
+              template === t.id ? 'border-accent bg-accent-soft shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_20%,transparent)]' : 'border-border',
             )}
           >
             <span className="block text-[13px] font-medium">{t.name}</span>

@@ -15,8 +15,9 @@ export async function signIn(browser: Browser, name: string): Promise<Page> {
     return d.accept();
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Sign in with Google' }).click();
+  await page.getByRole('button', { name: 'Sign in with Google' }).first().click();
   await page.waitForURL('**/files');
+  await page.waitForFunction(() => !!(window as Win).__firebase?.auth.currentUser);
   return page;
 }
 

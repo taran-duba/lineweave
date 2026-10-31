@@ -51,6 +51,8 @@ function ShapePreview({ item }: { item: PaletteItem }) {
   return <div ref={ref} className="pointer-events-none h-10 w-10 overflow-hidden" />;
 }
 
+const SECTION_COLORS = ['#0f766e', '#f97316', '#0ea5e9', '#e11d48', '#16a34a', '#d97706'];
+
 const LIBS_KEY = 'upgraded-drawio:libraries';
 
 function readLibraries(): string[] {
@@ -114,6 +116,7 @@ export function ShapeLibrary() {
                 className="flex w-full items-center gap-1 px-3 py-2 text-[13px] font-medium hover:bg-panel-2"
               >
                 <ChevronRight size={14} className={clsx('text-muted transition-transform', open && 'rotate-90')} />
+                <span className="h-2 w-2 rounded-full" style={{ background: SECTION_COLORS[sections.indexOf(section) % SECTION_COLORS.length] }} />
                 {section.title}
               </button>
               {open && (
@@ -132,7 +135,7 @@ export function ShapeLibrary() {
                       }}
                       onClick={() => canvas?.actions.insert(item)}
                       className={clsx(
-                        'flex items-center rounded-md hover:bg-panel-2 disabled:cursor-not-allowed disabled:opacity-40',
+                        'flex items-center rounded-md transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40',
                         section.list ? 'h-10 gap-1 text-left text-[13px]' : 'h-12 justify-center',
                       )}
                     >

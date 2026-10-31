@@ -38,7 +38,7 @@ export function PageTabs() {
             aria-selected={active}
             className={clsx(
               'group flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px]',
-              active ? 'bg-accent-soft font-medium text-accent' : 'text-muted hover:bg-panel-2 hover:text-text',
+              active ? 'bg-accent-soft font-medium text-accent shadow-[inset_0_-2px_0_var(--accent)]' : 'text-muted hover:bg-panel-2 hover:text-text',
             )}
             onClick={() => setPageId(id)}
             onDoubleClick={() => !readOnly && setEditing(id)}

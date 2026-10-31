@@ -83,7 +83,7 @@ const CONNECTION_POINTS = [
   [0.25, 1], [0.5, 1], [0.75, 1],
 ];
 const POINT_IMAGE = `data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><path d="M2 2 8 8M8 2 2 8" stroke="#2f6fed" stroke-width="1.6"/></svg>',
+  '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><path d="M2 2 8 8M8 2 2 8" stroke="#0f766e" stroke-width="1.6"/></svg>',
 )}`;
 
 /**

@@ -19,7 +19,7 @@ export function IconButton({
       className={clsx(
         'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-text transition-colors',
         'hover:bg-panel-2 disabled:pointer-events-none disabled:opacity-35',
-        active && 'bg-accent-soft text-accent',
+        active && 'bg-accent-soft text-accent ring-1 ring-accent/25',
         className,
       )}
       {...rest}
@@ -39,7 +39,7 @@ export function Button({
       type="button"
       className={clsx(
         'inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors disabled:opacity-50',
-        variant === 'primary' && 'bg-accent text-white hover:brightness-110',
+        variant === 'primary' && 'bg-gradient-to-br from-teal-700 to-teal-600 text-white shadow-sm hover:brightness-110',
         variant === 'secondary' && 'border border-border bg-panel hover:bg-panel-2',
         variant === 'ghost' && 'hover:bg-panel-2',
         className,
@@ -228,7 +228,10 @@ function normalizeHex(v: string): string {
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-b border-border px-4 py-3">
-      <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted">{title}</h3>
+      <h3 className="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="h-3 w-0.5 rounded-full bg-gradient-to-b from-accent to-orange-400" />
+        {title}
+      </h3>
       <div className="flex flex-col gap-2">{children}</div>
     </section>
   );
