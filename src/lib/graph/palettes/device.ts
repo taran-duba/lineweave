@@ -152,6 +152,6 @@ export function device(spec: DeviceSpec): DeviceItem {
   const [fill, stroke] = spec.colors;
   const style =
     `rounded=1;arcSize=4;absoluteArcSize=1;whiteSpace=wrap;html=1;overflow=fill;spacing=0;verticalAlign=top;fillColor=${fill};strokeColor=${stroke};fontColor=#1a1a1a;` +
-    `points=${JSON.stringify(pins.map((p) => [p.x, p.y, 0]))};${SCHEMATIC_KEY}`;
+    `points=${JSON.stringify(pins.map((p) => [p.x, p.y, 0]))};device=${spec.id};${SCHEMATIC_KEY}`;
   return { id: spec.id, title: spec.title, style, width: w, height: h, value, tags: [spec.part, spec.tags].filter(Boolean).join(' '), pins };
 }

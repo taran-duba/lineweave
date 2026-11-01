@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { Cell, StencilShapeRegistry, type StencilShape } from '@maxgraph/core';
+import { Cell, Graph, StencilShapeRegistry, type StencilShape } from '@maxgraph/core';
 import { parseDrawio } from '@/lib/drawio/codec';
 import { toCellStyle } from '@/lib/drawio/style';
 import { frcWiringTemplate } from '@/lib/frcTemplate';
 import { parsePointsStyle } from '@/lib/graph/createGraph';
+import { swapDevice, variantOf } from '@/lib/graph/deviceVariant';
 import { PALETTES } from '@/lib/graph/palette';
 import { device } from '@/lib/graph/palettes/device';
 import { FRC_PALETTES, frcDevice } from '@/lib/graph/palettes/frc';
@@ -100,5 +101,50 @@ describe('FRC wiring template', () => {
         expect(points.some((p) => p.point!.x === x && p.point!.y === y), `${w.id} -> ${end} at ${x},${y}`).toBe(true);
       }
     }
+  });
+});
+
+describe('Kraken PowerPole adapter toggle', () => {
+  it('is not a separate palette entry', () => {
+    const ids = FRC_PALETTES.flatMap((p) => p.items).map((i) => i.id);
+    expect(ids).toContain('frc-kraken-x60');
+    expect(ids.filter((i) => i.includes('powerpole'))).toEqual([]);
+  });
+
+  it('swaps the layout and moves attached wires onto the matching terminals, and back', () => {
+    const graph = new Graph(document.createElement('div'));
+    const base = frcDevice('kraken-x60');
+    const adapter = frcDevice('kraken-x60-powerpole');
+    const pin = (d: typeof base, name: string) => d.pins.find((p) => p.name === name)!;
+    const wireStyle = (p: { x: number; y: number }) => `exitX=${p.x};exitY=${p.y};exitDx=0;exitDy=0;exitPerimeter=0;`;
+    const model = graph.getDataModel();
+    const parent = graph.getDefaultParent();
+    let kraken!: Cell;
+    let wire!: Cell;
+    model.beginUpdate();
+    try {
+      kraken = graph.insertVertex({ parent, value: base.value, position: [100, 100], size: [base.width, base.height], style: toCellStyle(base.style) });
+      const other = graph.insertVertex({ parent, value: '', position: [0, 0], size: [20, 20] });
+      wire = graph.insertEdge({ parent, source: kraken, target: other, style: toCellStyle(wireStyle(pin(base, 'CAN H'))) });
+    } finally {
+      model.endUpdate();
+    }
+    const style = () => kraken.style as Record<string, unknown>;
+    expect(variantOf(style())?.alternate).toBe('kraken-x60-powerpole');
+
+    swapDevice(graph, kraken, style());
+    expect(kraken.value).toBe(adapter.value);
+    expect(kraken.geometry!.width).toBe(adapter.width);
+    // Stays centered, on the grid.
+    expect(kraken.geometry!.x + adapter.width / 2).toBe(100 + base.width / 2);
+    expect(parsePointsStyle(style().points)!.length).toBe(adapter.pins.length);
+    const es = wire.style as Record<string, unknown>;
+    expect([es.exitX, es.exitY]).toEqual([pin(adapter, 'CAN in H').x, pin(adapter, 'CAN in H').y]);
+
+    swapDevice(graph, kraken, style());
+    expect(kraken.value).toBe(base.value);
+    expect(kraken.geometry!.width).toBe(base.width);
+    const back = wire.style as Record<string, unknown>;
+    expect([back.exitX, back.exitY]).toEqual([pin(base, 'CAN H').x, pin(base, 'CAN H').y]);
   });
 });

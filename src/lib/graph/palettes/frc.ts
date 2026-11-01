@@ -174,10 +174,6 @@ export const FRC_MOTORS: PaletteSection = {
     // WCP Kraken docs: screw terminals on the rear Talon FX cap, - H L + left to right.
     d({ id: 'kraken-x60', title: 'Kraken X60', part: 'integrated Talon FX', colors: MOTOR, pins: { bottom: ['V-', group('CAN', ['H', 'L']), 'V+'] }, tags: 'wcp motor talon fx' }),
     d({ id: 'kraken-x44', title: 'Kraken X44', part: 'integrated Talon FX', colors: MOTOR, pins: { bottom: ['V-', group('CAN', ['H', 'L']), 'V+'] }, tags: 'wcp motor talon fx' }),
-    // WCP PowerPole Adapter Board (docs.wcproducts.com): Anderson PowerPole power input plus two CAN ports
-    // that are interchangeable as in and out, so the bus daisy-chains through the motor.
-    d({ id: 'kraken-x60-powerpole', title: 'Kraken X60', part: 'with PowerPole adapter', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'wcp motor talon fx powerpole adapter board' }),
-    d({ id: 'kraken-x44-powerpole', title: 'Kraken X44', part: 'with PowerPole adapter', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'wcp motor talon fx powerpole adapter board' }),
     // CTRE Falcon 500 user's guide: power leads and two CAN pairs (one male, one female plug).
     d({ id: 'falcon', title: 'Falcon 500', part: 'integrated Talon FX', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'vex motor talon fx' }),
     // REV docs: phase leads (red, black, white) and the encoder cable leave the rear of the can.
@@ -244,11 +240,40 @@ export const FRC_PNEUMATICS: PaletteSection = {
   ],
 };
 
+/**
+ * WCP PowerPole Adapter Board for the Kraken X60/X44 (docs.wcproducts.com): Anderson PowerPole power input plus
+ * two CAN ports that are interchangeable as in and out, so the bus daisy-chains through the motor. These aren't
+ * palette items; the format panel swaps a Kraken block to and from them.
+ */
+const adapterKraken = (id: string, title: string) =>
+  d({ id, title, part: 'PowerPole adapter board', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'wcp motor talon fx powerpole adapter board' });
+const ADAPTER_DEVICES = [adapterKraken('kraken-x60-powerpole', 'Kraken X60'), adapterKraken('kraken-x44-powerpole', 'Kraken X44')];
+
+/** A block that can be toggled to an alternate terminal layout, with how terminals map between the two. */
+export interface DeviceVariant {
+  label: string;
+  /** Short id of the alternate layout. */
+  alternate: string;
+  /** Terminal names of this layout -> the alternate's. */
+  pinMap: Record<string, string>;
+}
+
+const KRAKEN_TO_ADAPTER = { 'V+': 'POWER V+', 'V-': 'POWER V-', 'CAN H': 'CAN in H', 'CAN L': 'CAN in L' };
+// Either adapter CAN port lands on the stock CAN terminals.
+const ADAPTER_TO_KRAKEN = { 'POWER V+': 'V+', 'POWER V-': 'V-', 'CAN in H': 'CAN H', 'CAN in L': 'CAN L', 'CAN out H': 'CAN H', 'CAN out L': 'CAN L' };
+
+export const FRC_VARIANTS: Record<string, DeviceVariant> = {
+  'kraken-x60': { label: 'PowerPole adapter', alternate: 'kraken-x60-powerpole', pinMap: KRAKEN_TO_ADAPTER },
+  'kraken-x44': { label: 'PowerPole adapter', alternate: 'kraken-x44-powerpole', pinMap: KRAKEN_TO_ADAPTER },
+  'kraken-x60-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x60', pinMap: ADAPTER_TO_KRAKEN },
+  'kraken-x44-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x44', pinMap: ADAPTER_TO_KRAKEN },
+};
+
 export const FRC_PALETTES = [FRC_POWER, FRC_MOTORS, FRC_PNEUMATICS];
 
 /** A block by its short id (`pdh`, `spark-max`, ...), with its terminal layout. */
 export function frcDevice(id: string): DeviceItem {
-  const item = FRC_PALETTES.flatMap((s) => s.items).find((i) => i.id === `frc-${id}`);
+  const item = [...FRC_PALETTES.flatMap((s) => s.items), ...ADAPTER_DEVICES].find((i) => i.id === `frc-${id}`);
   if (!item || !('pins' in item)) throw new Error(`Unknown FRC device: ${id}`);
   return item as DeviceItem;
 }
