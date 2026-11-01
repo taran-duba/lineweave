@@ -174,6 +174,10 @@ export const FRC_MOTORS: PaletteSection = {
     // WCP Kraken docs: screw terminals on the rear Talon FX cap, - H L + left to right.
     d({ id: 'kraken-x60', title: 'Kraken X60', part: 'integrated Talon FX', colors: MOTOR, pins: { bottom: ['V-', group('CAN', ['H', 'L']), 'V+'] }, tags: 'wcp motor talon fx' }),
     d({ id: 'kraken-x44', title: 'Kraken X44', part: 'integrated Talon FX', colors: MOTOR, pins: { bottom: ['V-', group('CAN', ['H', 'L']), 'V+'] }, tags: 'wcp motor talon fx' }),
+    // WCP PowerPole Adapter Board (docs.wcproducts.com): Anderson PowerPole power input plus two CAN ports
+    // that are interchangeable as in and out, so the bus daisy-chains through the motor.
+    d({ id: 'kraken-x60-powerpole', title: 'Kraken X60', part: 'with PowerPole adapter', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'wcp motor talon fx powerpole adapter board' }),
+    d({ id: 'kraken-x44-powerpole', title: 'Kraken X44', part: 'with PowerPole adapter', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'wcp motor talon fx powerpole adapter board' }),
     // CTRE Falcon 500 user's guide: power leads and two CAN pairs (one male, one female plug).
     d({ id: 'falcon', title: 'Falcon 500', part: 'integrated Talon FX', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'vex motor talon fx' }),
     // REV docs: phase leads (red, black, white) and the encoder cable leave the rear of the can.
