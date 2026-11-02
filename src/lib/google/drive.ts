@@ -8,7 +8,7 @@ import { driveStub, getDriveToken, NotSignedInError } from './auth';
 export const DRAWIO_MIME = 'application/vnd.jgraph.mxfile';
 const API = driveStub ? '/api/dev/drive/v3' : 'https://www.googleapis.com/drive/v3';
 const UPLOAD = driveStub ? '/api/dev/drive/upload/v3' : 'https://www.googleapis.com/upload/drive/v3';
-const META_FIELDS = 'id,name,mimeType,headRevisionId,modifiedTime,webViewLink,capabilities(canEdit,canShare),owners(displayName)';
+const META_FIELDS = 'id,name,mimeType,headRevisionId,modifiedTime,webViewLink,capabilities(canEdit,canShare),owners(displayName),driveId';
 
 export interface DriveFile {
   id: string;
@@ -19,6 +19,8 @@ export interface DriveFile {
   webViewLink?: string;
   capabilities?: { canEdit?: boolean; canShare?: boolean };
   owners?: { displayName?: string }[];
+  /** Set for files in a shared drive (which have no owners). */
+  driveId?: string;
 }
 
 export class DriveError extends Error {
@@ -56,7 +58,8 @@ export async function listDiagrams(): Promise<DriveFile[]> {
     includeItemsFromAllDrives: 'true',
   });
   const res = await call(`${API}/files?${params}`);
-  return ((await res.json()) as { files: DriveFile[] }).files;
+  const files = ((await res.json()) as { files: DriveFile[] }).files;
+  return files;
 }
 
 export async function getFileMeta(id: string): Promise<DriveFile> {
@@ -69,13 +72,13 @@ export async function downloadFile(id: string): Promise<string> {
   return res.text();
 }
 
-export async function createFile(name: string, xml: string): Promise<DriveFile> {
+export async function createFile(name: string, xml: string, parentId?: string): Promise<DriveFile> {
   const boundary = `drawio-${crypto.randomUUID()}`;
   const body =
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
-    JSON.stringify({ name, mimeType: DRAWIO_MIME }) +
+    JSON.stringify({ name, mimeType: DRAWIO_MIME, ...(parentId ? { parents: [parentId] } : {}) }) +
     `\r\n--${boundary}\r\nContent-Type: ${DRAWIO_MIME}\r\n\r\n${xml}\r\n--${boundary}--`;
-  const res = await call(`${UPLOAD}/files?uploadType=multipart&fields=${META_FIELDS}`, {
+  const res = await call(`${UPLOAD}/files?uploadType=multipart&supportsAllDrives=true&fields=${META_FIELDS}`, {
     method: 'POST',
     headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
     body,

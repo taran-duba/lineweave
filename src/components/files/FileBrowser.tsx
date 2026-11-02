@@ -8,13 +8,14 @@ import { FileUp, FolderOpen, Loader2, LogOut, Plus, RefreshCw, Workflow } from '
 import { Button } from '@/components/ui';
 import { serializeDrawio } from '@/lib/drawio/codec';
 import { TEMPLATES } from '@/lib/templates';
-import { NewDiagramDialog } from './NewDiagramDialog';
+import { NewDiagramDialog, type Folder } from './NewDiagramDialog';
 import { displayTitle } from '@/lib/collab/openRoom';
 import { IMPORT_ACCEPT, importFile } from '@/lib/drawio/importers';
 import { firebase } from '@/lib/firebase/client';
 import { clearSessionHint } from '@/lib/sessionHint';
 import { driveStub, NotSignedInError, signOut } from '@/lib/google/auth';
 import { createFile, listDiagrams, type DriveFile } from '@/lib/google/drive';
+import { rememberedOrg } from '@/lib/google/picker';
 
 const PALETTES: [string, string][] = [
   ['#0f766e', '#14b8a6'],
@@ -88,12 +89,16 @@ export default function FileBrowser() {
     else if (user) void refresh();
   }, [user, refresh, router]);
 
-  const create = async (name: string, templateId: string) => {
+  const create = async (name: string, templateId: string, folder?: Folder) => {
     setBusy(true);
     try {
       const template = TEMPLATES.find((t) => t.id === templateId) ?? TEMPLATES[0];
-      const file = await createFile(`${name}.drawio`, template.build());
+      const file = await createFile(`${name}.drawio`, template.build(), folder?.id);
       router.push(`/d/${file.id}`);
+      // Reset now: on back-navigation this component can be restored with its old state,
+      // which would leave a stuck dialog with busy=true.
+      setCreating(false);
+      setBusy(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -109,6 +114,7 @@ export default function FileBrowser() {
       const base = local.name.replace(/\.(drawio\.(png|svg)|drawio|xml|png|svg|vsdx|csv|mmd|mermaid|txt)$/i, '') || 'Imported diagram';
       const file = await createFile(`${base}.drawio`, serializeDrawio(data));
       router.push(`/d/${file.id}`);
+      setBusy(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -240,7 +246,7 @@ export default function FileBrowser() {
                   <div className="px-4 py-3">
                     <p className="truncate text-sm font-semibold">{displayTitle(f.name)}</p>
                     <p className="mt-0.5 flex items-center gap-2 truncate text-[13px] text-muted">
-                      <span className="truncate">{f.owners?.[0]?.displayName}</span>
+                      <span className="truncate">{f.owners?.[0]?.displayName ?? (f.driveId ? rememberedOrg(f.id) : undefined)}</span>
                       <span className="ml-auto shrink-0">{when(f.modifiedTime)}</span>
                     </p>
                   </div>
