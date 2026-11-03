@@ -56,6 +56,19 @@ export const FRC_POWER: PaletteSection = {
       tags: 'pdh pdp distribution',
       sidesFromTop: true,
     }),
+    // REV MPM product photo: channels 5-0 down the right edge (5 at top), each a +/- pair on a latching WAGO 2601;
+    // the 12V input is a +/- pair on the bottom edge, + on the left.
+    d({
+      id: 'mpm',
+      title: 'Mini Power Module',
+      part: 'REV MPM',
+      colors: POWER,
+      pins: {
+        right: channels(down(0, 5), '+'),
+        bottom: [group('12V IN', ['+', '-'])],
+      },
+      tags: 'mpm mini power module distribution fuse',
+    }),
     // CTRE PDP user's guide: fused outputs on top, channels down both sides, battery and CAN at the bottom.
     d({
       id: 'pdp',
