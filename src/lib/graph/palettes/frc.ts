@@ -135,8 +135,14 @@ export const FRC_POWER: PaletteSection = {
     // CTRE CANivore user's guide: USB-C on top, one Weidmuller block (CANL, CANH, V+, V-) at the bottom.
     d({ id: 'canivore', title: 'CANivore', part: 'CTRE USB-CAN', colors: COMMS, pins: { top: ['USB-C'], bottom: ['CAN L', 'CAN H', 'V+', 'V-'] }, tags: 'can fd' }),
     symbol('frc-can-term', 'CAN terminator (120 Ω)', 'resistors.resistor_2', 100, 20, '', '120 Ω', 'frc can termination resistor'),
-    // Limelight docs (LL4; the 3G is the same): USB-C on top, power on the right, Ethernet at the bottom.
-    d({ id: 'limelight', title: 'Limelight 4', part: 'also Limelight 3G', colors: COMMS, pins: { top: ['USB-C'], right: ['+', '-'], bottom: ['Ethernet'] }, tags: 'camera vision' }),
+    // Limelight docs (LL4): USB-C on top, power on the right, Ethernet at the bottom.
+    // Limelight docs: the 3 has power, 10/100 Ethernet, a USB-A host port and a USB-C used only for flashing.
+    // The 3G has power, Gigabit Ethernet and a USB-C imaging/connectivity port (no USB-A). Sides for the 3 are from the physical unit.
+    d({ id: 'limelight', title: 'Limelight 4', part: 'vision camera', colors: COMMS, pins: { top: ['USB-C'], right: ['+', '-'], bottom: ['Ethernet'] }, tags: 'camera vision' }),
+    d({ id: 'limelight-3', title: 'Limelight 3', part: 'vision camera', colors: COMMS, pins: { top: ['USB-C'], right: ['+', '-'], bottom: ['USB-A', 'Ethernet'] }, tags: 'camera vision limelight3 ll3' }),
+    // The 3A (FTC) has a single USB-C port for power and data, per AndyMark/ServoCity listings.
+    d({ id: 'limelight-3a', title: 'Limelight 3A', part: 'FTC vision camera', colors: COMMS, pins: { top: ['USB-C'] }, tags: 'camera vision limelight3a ll3a ftc' }),
+    d({ id: 'limelight-3g', title: 'Limelight 3G', part: 'vision camera', colors: COMMS, pins: { top: ['USB-C'], right: ['+', '-'], bottom: ['Ethernet'] }, tags: 'camera vision limelight3g ll3g global shutter' }),
     d({ id: 'coprocessor', title: 'Coprocessor', part: 'vision / logging', colors: COMMS, pins: { left: ['PWR +', 'PWR -'], right: ['Ethernet', 'USB'] }, tags: 'orange pi raspberry jetson' }),
   ],
 };
