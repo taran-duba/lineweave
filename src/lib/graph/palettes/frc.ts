@@ -136,9 +136,10 @@ export const FRC_POWER: PaletteSection = {
     d({ id: 'canivore', title: 'CANivore', part: 'CTRE USB-CAN', colors: COMMS, pins: { top: ['USB-C'], bottom: ['CAN L', 'CAN H', 'V+', 'V-'] }, tags: 'can fd' }),
     symbol('frc-can-term', 'CAN terminator (120 Ω)', 'resistors.resistor_2', 100, 20, '', '120 Ω', 'frc can termination resistor'),
     // Limelight docs (LL4): USB-C on top, power on the right, Ethernet at the bottom.
-    // The 3 and 3G are drawn with the same terminals as the 4 (unverified against Limelight's docs).
+    // Limelight docs: the 3 has power, 10/100 Ethernet, a USB-A host port and a USB-C used only for flashing.
+    // The 3G has power, Gigabit Ethernet and a USB-C imaging/connectivity port (no USB-A). The docs don't say which face each port is on.
     d({ id: 'limelight', title: 'Limelight 4', part: 'vision camera', colors: COMMS, pins: { top: ['USB-C'], right: ['+', '-'], bottom: ['Ethernet'] }, tags: 'camera vision' }),
-    d({ id: 'limelight-3', title: 'Limelight 3', part: 'vision camera', colors: COMMS, pins: { top: ['USB-C'], right: ['+', '-'], bottom: ['Ethernet'] }, tags: 'camera vision limelight3 ll3' }),
+    d({ id: 'limelight-3', title: 'Limelight 3', part: 'vision camera', colors: COMMS, pins: { top: ['USB-C (flash)', 'USB-A'], right: ['+', '-'], bottom: ['Ethernet'] }, tags: 'camera vision limelight3 ll3' }),
     // The 3A (FTC) has a single USB-C port for power and data, per AndyMark/ServoCity listings.
     d({ id: 'limelight-3a', title: 'Limelight 3A', part: 'FTC vision camera', colors: COMMS, pins: { top: ['USB-C'] }, tags: 'camera vision limelight3a ll3a ftc' }),
     d({ id: 'limelight-3g', title: 'Limelight 3G', part: 'vision camera', colors: COMMS, pins: { top: ['USB-C'], right: ['+', '-'], bottom: ['Ethernet'] }, tags: 'camera vision limelight3g ll3g global shutter' }),
