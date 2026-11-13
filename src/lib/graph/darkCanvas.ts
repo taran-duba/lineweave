@@ -1,4 +1,5 @@
 import type { Cell, CellStateStyle, Graph } from '@maxgraph/core';
+import { getTheme, subscribeTheme } from '@/lib/theme';
 
 /**
  * On the dark (black) canvas, default black lines and text would vanish. Like
@@ -40,22 +41,19 @@ export function adaptStyleForDark(style: CellStateStyle, cell: Cell): CellStateS
 const rawStyle = new WeakMap<Graph, (cell: Cell) => CellStateStyle>();
 const suspended = new WeakSet<Graph>();
 
-/** Installs the adaptation; it follows the OS/browser color scheme live. Returns an uninstall function. */
+/** Installs the adaptation; it follows the site theme (toggle or OS setting) live. Returns an uninstall function. */
 export function installDarkCanvas(graph: Graph): () => void {
   const raw = graph.getCellStyle.bind(graph);
   rawStyle.set(graph, raw);
-  const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  let dark = mq.matches;
+  let dark = getTheme() === 'dark';
   graph.getCellStyle = (cell: Cell) => {
     const style = raw(cell);
     return dark && !suspended.has(graph) ? adaptStyleForDark(style, cell) : style;
   };
-  const onChange = () => {
-    dark = mq.matches;
+  return subscribeTheme(() => {
+    dark = getTheme() === 'dark';
     graph.refresh();
-  };
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
+  });
 }
 
 /** The cell's real (stored) style, ignoring any display adaptation. */
@@ -65,7 +63,7 @@ export function storedCellStyle(graph: Graph, cell: Cell): CellStateStyle {
 
 /** Runs `fn` with the graph rendered in its true colors (for exports). */
 export function withTrueColors<T>(graph: Graph, fn: () => T): T {
-  if (!rawStyle.has(graph) || !window.matchMedia('(prefers-color-scheme: dark)').matches) return fn();
+  if (!rawStyle.has(graph) || getTheme() !== 'dark') return fn();
   suspended.add(graph);
   graph.refresh();
   try {

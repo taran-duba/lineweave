@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Cable, FileDown, FileInput, History, Layers, Workflow, Zap } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { SignInButton } from '@/components/auth/SignInButton';
 import { COPYRIGHT } from '@/components/landing/LegalPage';
 import { HeroDiagram } from '@/components/landing/HeroDiagram';
@@ -27,6 +28,7 @@ export default function Home() {
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-white"><Workflow size={17} /></span>
           <span className="font-semibold">Lineweave</span>
           <Link href="/demo" className="ml-auto text-sm text-muted transition-colors hover:text-text">Try the demo</Link>
+          <ThemeToggle />
         </div>
       </header>
 

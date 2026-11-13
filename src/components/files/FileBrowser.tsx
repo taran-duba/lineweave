@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { FileUp, FolderOpen, Loader2, LogOut, Plus, RefreshCw, Workflow } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui';
 import { serializeDrawio } from '@/lib/drawio/codec';
 import { TEMPLATES } from '@/lib/templates';
@@ -154,6 +155,7 @@ export default function FileBrowser() {
         </Link>
         <span className="font-semibold">Lineweave</span>
         <div className="flex-1" />
+        <ThemeToggle />
         <span className="hidden text-sm text-muted sm:inline">{user.email}</span>
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-rose-500 text-sm font-semibold text-white">{initial}</span>
         <Button

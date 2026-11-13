@@ -18,8 +18,9 @@
   --page-break: #c4c8cf;
 }
 
+/* Dark applies for an explicit data-theme="dark", or for a dark OS unless the user picked light. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #111317;
     --panel: #181b20;
     --panel-2: #20242a;
@@ -37,6 +38,27 @@
     --page-break: #4a4f57;
   }
 }
+
+:root[data-theme="dark"] {
+  --bg: #111317;
+  --panel: #181b20;
+  --panel-2: #20242a;
+  --border: #2a2f37;
+  --text: #e8eaee;
+  --muted: #98a0ab;
+  --accent: #0d9488;
+  --accent-soft: #123430;
+  --danger: #ef6464;
+  /* Only the canvas backdrop goes dark; diagram colors are never changed. */
+  --canvas: #000000;
+  --grid-minor: #262626;
+  --grid-major: #3d3d3d;
+  --gutter: #17191d;
+  --page-break: #4a4f57;
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 @theme inline {
   --color-bg: var(--bg);
