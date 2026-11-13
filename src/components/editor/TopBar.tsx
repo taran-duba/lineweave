@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, MessageSquare, Workflow } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui';
 import { ExportMenu, FileMenu } from './FileMenus';
 import { PresenceAvatars } from './PresenceAvatars';
@@ -55,6 +56,7 @@ export function TopBar() {
       <SaveIndicator />
       <div className="flex-1" />
       <PresenceAvatars />
+      <ThemeToggle />
       {session.comments && (
         <Button variant={commentsOpen ? 'secondary' : 'ghost'} onClick={() => setCommentsOpen(!commentsOpen)} aria-pressed={commentsOpen}>
           <MessageSquare size={14} /> Comments
