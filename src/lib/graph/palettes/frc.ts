@@ -1,6 +1,7 @@
 import type { PaletteSection } from '../palette';
 import { device, type DeviceItem, type DeviceSpec, type PinGroup } from './device';
 import { symbol } from './electrical';
+import { swerveModule } from './swerve';
 
 /**
  * FRC control system parts as wiring-diagram blocks, with each terminal a
@@ -260,40 +261,26 @@ export const FRC_PNEUMATICS: PaletteSection = {
 };
 
 /**
- * WCP swerve modules as one block each: drive motor terminals on top, steer motor on the bottom, encoder on the
- * left. Motor terminals follow the Kraken's rear cap (- H L + left to right); the CANcoder follows its user's guide
- * and the WCP ThroughBore its 6-pin Molex SL (power plus CAN in/out). Defaults per docs.wcproducts.com: X2/X2i/X2t
- * use Krakens and a CANcoder, X2S/X2St a Kraken X60 drive, X44 steer and the ThroughBore. The docs say other
- * motors fit, so swap in the individual motor blocks if yours differ.
+ * WCP swerve modules as triangular blocks (see `swerve.ts`): encoder at the apex, drive motor bottom left, azimuth
+ * motor bottom right. Motor terminals follow the Kraken's rear cap (- H L + left to right). Defaults per
+ * docs.wcproducts.com: X/XS/X2/X2i/X2t use Krakens and a CANcoder, X2S/X2St a Kraken X60 drive, X44 azimuth and the
+ * WCP ThroughBore. The docs say other motors fit, so wire the individual motor blocks instead if yours differ.
  */
-const krakenLeads = (name: string): PinGroup => group(name, ['V-', 'H', 'L', 'V+']);
-
-const swerve = (id: string, title: string, part: string, encoder: 'cancoder' | 'throughbore', tags = '') =>
-  d({
-    id,
-    title,
-    part,
-    colors: DRIVE,
-    pins: {
-      top: [krakenLeads('DRIVE')],
-      bottom: [krakenLeads('STEER')],
-      left: encoder === 'cancoder' ? ['CANcoder GND', 'CANcoder V+', 'CAN L', 'CAN H'] : ['ThroughBore +', 'ThroughBore -', 'CAN H', 'CAN L'],
-    },
-    tags: `wcp swerve module drivetrain ${tags}`.trim(),
-  });
+const swerve = (id: string, title: string, part: string, encoder: 'cancoder' | 'throughbore', tags: string) =>
+  swerveModule({ id: `frc-${id}`, title, part, encoder, colors: DRIVE, tags: `frc wcp swerve module drivetrain ${tags}` });
 
 export const FRC_SWERVE: PaletteSection = {
   id: 'frc-swerve',
   title: 'FRC: Swerve Modules',
   list: true,
   items: [
-    swerve('swerve-x', 'Swerve X', 'WCP, Kraken X60 x2', 'cancoder', 'x'),
-    swerve('swerve-xs', 'Swerve XS', 'WCP, Kraken X60 x2', 'cancoder', 'xs'),
-    swerve('swerve-x2', 'Swerve X2', 'WCP standard, Kraken X60 x2', 'cancoder', 'x2'),
-    swerve('swerve-x2i', 'Swerve X2i', 'WCP inverted, Kraken X60 x2', 'cancoder', 'x2i inverted'),
-    swerve('swerve-x2t', 'Swerve X2t', 'WCP thin, Kraken X60 x2', 'cancoder', 'x2t thin'),
-    swerve('swerve-x2s', 'Swerve X2S', 'WCP, Kraken X60 + X44', 'throughbore', 'x2s'),
-    swerve('swerve-x2st', 'Swerve X2St', 'WCP thin, Kraken X60 + X44', 'throughbore', 'x2st thin'),
+    swerve('swerve-x', 'Swerve X', 'Kraken X60 x2', 'cancoder', 'x'),
+    swerve('swerve-xs', 'Swerve XS', 'Kraken X60 x2', 'cancoder', 'xs'),
+    swerve('swerve-x2', 'Swerve X2', 'standard, Kraken X60 x2', 'cancoder', 'x2'),
+    swerve('swerve-x2i', 'Swerve X2i', 'inverted, Kraken X60 x2', 'cancoder', 'x2i inverted'),
+    swerve('swerve-x2t', 'Swerve X2t', 'thin, Kraken X60 x2', 'cancoder', 'x2t thin'),
+    swerve('swerve-x2s', 'Swerve X2S', 'Kraken X60 + X44', 'throughbore', 'x2s'),
+    swerve('swerve-x2st', 'Swerve X2St', 'thin, Kraken X60 + X44', 'throughbore', 'x2st thin'),
   ],
 };
 
