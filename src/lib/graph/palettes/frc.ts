@@ -261,7 +261,7 @@ export const FRC_PNEUMATICS: PaletteSection = {
 };
 
 /**
- * WCP swerve modules as triangular blocks (see `swerve.ts`): encoder at the apex, drive motor bottom left, azimuth
+ * WCP swerve modules as triangular bellypan-plate blocks (see `swerve.ts`): encoder at the apex, drive motor bottom left, azimuth
  * motor bottom right. Motor terminals follow the Kraken's rear cap (- H L + left to right). Defaults per
  * docs.wcproducts.com: X/XS/X2/X2i/X2t use Krakens and a CANcoder, X2S/X2St a Kraken X60 drive, X44 azimuth and the
  * WCP ThroughBore. The docs say other motors fit, so wire the individual motor blocks instead if yours differ.
