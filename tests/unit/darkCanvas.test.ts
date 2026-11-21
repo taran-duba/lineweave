@@ -38,6 +38,14 @@ describe('adaptStyleForDark', () => {
     });
   });
 
+  it('goes by what the cell itself says, since resolving a style drops fill and stroke set to none', () => {
+    const cell = Object.assign(new Cell(), { vertex: true, style: { fillColor: 'none', strokeColor: 'none', fontColor: '#000000' } });
+    // The resolved style has neither key; the label still lightens, and the missing outline stays missing.
+    const out = adapt(cell, { fontColor: '#000000', shape: 'rectangle' });
+    expect(out.fontColor).toBe('#dedede');
+    expect(out.strokeColor).toBeUndefined();
+  });
+
   it('never mutates the stored style', () => {
     const style = { strokeColor: '#000000' };
     adapt(edge(), style);

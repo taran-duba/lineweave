@@ -9,12 +9,13 @@ import {
   AlignVerticalJustifyStart,
   Bold,
   Italic,
+  RotateCw,
   Underline,
 } from 'lucide-react';
 import { ColorInput, Field, IconButton, Section, Select, Stepper } from '@/components/ui';
 import { pagesOf } from '@/lib/drawio/ydoc';
 import { storedCellStyle } from '@/lib/graph/darkCanvas';
-import { swapDevice, variantOf } from '@/lib/graph/deviceVariant';
+import { swapDevice, variantsOf } from '@/lib/graph/deviceVariant';
 import { ArrangeSection } from './format/ArrangeSection';
 import { ConnectorSection } from './format/ConnectorSection';
 import { DiagramSection } from './format/DiagramSection';
@@ -68,24 +69,32 @@ export function FormatPanel() {
     });
   };
 
-  // Device blocks with an alternate terminal layout (e.g. Kraken with the PowerPole adapter board).
-  const variant = cells.length === 1 && first.isVertex() ? variantOf(style) : null;
+  // Device blocks with alternate terminal layouts (e.g. Kraken with the PowerPole adapter board, swerve modules by corner).
+  const variants = cells.length === 1 && first.isVertex() ? variantsOf(style) : [];
 
   const pattern = !style.dashed ? 'solid' : style.dashPattern === '1 4' ? 'dotted' : 'dashed';
 
   return (
     <aside className="w-64 shrink-0 overflow-y-auto border-l border-border bg-panel" aria-label="Format">
       <fieldset disabled={readOnly} className="contents">
-        {variant && (
+        {variants.length > 0 && (
           <Section title="Device">
-            <Field label={variant.label}>
-              <input
-                type="checkbox"
-                checked={/-powerpole$/.test(variant.id)}
-                onChange={() => !readOnly && swapDevice(graph, first, style)}
-                className="accent-[var(--accent)]"
-              />
-            </Field>
+            {variants.map((variant, i) => (
+              <Field key={variant.label} label={variant.label}>
+                {variant.kind === 'step' ? (
+                  <IconButton label={variant.label} onClick={() => !readOnly && swapDevice(graph, first, style, i)}>
+                    <RotateCw size={15} />
+                  </IconButton>
+                ) : (
+                  <input
+                    type="checkbox"
+                    checked={!!variant.on}
+                    onChange={() => !readOnly && swapDevice(graph, first, style, i)}
+                    className="accent-[var(--accent)]"
+                  />
+                )}
+              </Field>
+            ))}
           </Section>
         )}
         {vertices.length > 0 && (

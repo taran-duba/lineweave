@@ -7,7 +7,7 @@ import { parsePointsStyle } from '@/lib/graph/createGraph';
 import { swapDevice, variantOf } from '@/lib/graph/deviceVariant';
 import { PALETTES } from '@/lib/graph/palette';
 import { device } from '@/lib/graph/palettes/device';
-import { FRC_PALETTES, FRC_VARIANTS, frcDevice } from '@/lib/graph/palettes/frc';
+import { FRC_PALETTES, frcDevice, frcVariants } from '@/lib/graph/palettes/frc';
 import { registerElectricalStencils } from '@/lib/graph/stencils';
 import { isSchematicCell, schematicConnectorStyle } from '@/lib/graph/wires';
 
@@ -150,25 +150,56 @@ describe('Kraken PowerPole adapter toggle', () => {
 });
 
 describe('swerve module blocks', () => {
-  const modules = Object.keys(FRC_VARIANTS).filter((id) => id.startsWith('swerve-') && !id.endsWith('-powerpole'));
+  const modelIds = ['swerve-x', 'swerve-xs', 'swerve-x2', 'swerve-x2i', 'swerve-x2t', 'swerve-x2s', 'swerve-x2st'];
 
   it('are in the palette, one per WCP module', () => {
     const ids = FRC_PALETTES.flatMap((p) => p.items).map((i) => i.id);
-    for (const id of ['x', 'xs', 'x2', 'x2i', 'x2t', 'x2s', 'x2st']) expect(ids, id).toContain(`frc-swerve-${id}`);
-    expect(modules).toHaveLength(7);
+    for (const id of modelIds) expect(ids, id).toContain(`frc-${id}`);
+    expect(ids.filter((i) => i.startsWith('frc-swerve'))).toHaveLength(modelIds.length);
   });
 
-  it('toggle to the PowerPole layout and back onto terminals that exist', () => {
-    for (const id of modules) {
-      for (const from of [id, `${id}-powerpole`]) {
-        const variant = FRC_VARIANTS[from];
-        const source = frcDevice(from);
-        const target = frcDevice(variant.alternate);
-        expect([target.width, target.height], from).toEqual([source.width, source.height]);
-        // Every terminal of the source maps to a terminal of the target, and every target terminal is reachable.
-        for (const pin of source.pins) expect(target.pins.map((p) => p.name), `${from} ${pin.name}`).toContain(variant.pinMap[pin.name]);
+  it('toggle to the PowerPole layout and turn a quarter at a time, always onto terminals that exist', () => {
+    for (const model of modelIds) {
+      for (const powerpole of ['', '-powerpole']) {
+        for (const turn of ['', '-r1', '-r2', '-r3']) {
+          const id = `${model}${powerpole}${turn}`;
+          const source = frcDevice(id);
+          const variants = frcVariants(id);
+          expect(variants.map((v) => v.kind), id).toEqual(['toggle', 'step']);
+          for (const variant of variants) {
+            const target = frcDevice(variant.alternate);
+            // Every terminal maps to one that exists on the other layout.
+            for (const pin of source.pins) expect(target.pins.map((p) => p.name), `${id} ${pin.name}`).toContain(variant.pinMap[pin.name]);
+          }
+          // Four turns come back to the start.
+          let at = id;
+          for (let i = 0; i < 4; i++) at = frcVariants(at)[1].alternate;
+          expect(at, id).toBe(id);
+        }
       }
-      expect(frcDevice(`${id}-powerpole`).pins.length).toBeGreaterThan(frcDevice(id).pins.length);
     }
+  });
+
+  it('keep every terminal inside the block, on the grid, with the same wiring however it is turned', () => {
+    for (const turn of ['', '-r1', '-r2', '-r3']) {
+      const d = frcDevice(`swerve-x2i${turn}`);
+      expect(d.pins.map((p) => p.name).sort()).toEqual(frcDevice('swerve-x2i').pins.map((p) => p.name).sort());
+      for (const p of d.pins) {
+        expect(p.x, `${turn} ${p.name}`).toBeGreaterThan(0);
+        expect(p.x, `${turn} ${p.name}`).toBeLessThan(1);
+        expect(p.y, `${turn} ${p.name}`).toBeGreaterThan(0);
+        expect(p.y, `${turn} ${p.name}`).toBeLessThan(1);
+        expect(offGrid(p.x * d.width), `${turn} ${p.name} x`).toBeLessThan(0.01);
+        expect(offGrid(p.y * d.height), `${turn} ${p.name} y`).toBeLessThan(0.01);
+      }
+    }
+    // A quarter turn swaps the block's width and height.
+    expect([frcDevice('swerve-x2i-r1').width, frcDevice('swerve-x2i-r1').height]).toEqual([frcDevice('swerve-x2i').height, frcDevice('swerve-x2i').width]);
+  });
+
+  it('draw terminal text in the canvas color (so dark mode shows it) and text on the cover in dark ink', () => {
+    const d = frcDevice('swerve-x2i');
+    expect(toCellStyle(d.style).fontColor).toBe('#000000');
+    expect(d.value).toContain('stroke="currentColor"');
   });
 });

@@ -1,7 +1,7 @@
 import type { PaletteSection } from '../palette';
 import { device, type DeviceItem, type DeviceSpec, type PinGroup } from './device';
 import { symbol } from './electrical';
-import { swerveFromPowerpole, swerveModule, swerveToPowerpole } from './swerve';
+import { swerveFromPowerpole, swerveModule, swerveToPowerpole, type SwerveTurn } from './swerve';
 
 /**
  * FRC control system parts as wiring-diagram blocks, with each terminal a
@@ -264,8 +264,9 @@ export const FRC_PNEUMATICS: PaletteSection = {
  * WCP swerve modules as their top cover (see `swerve.ts`): the drive and azimuth Krakens as circles on an angled plate
  * with a small encoder circle, each keeping its real terminals. Defaults per docs.wcproducts.com: X/XS/X2/X2i/X2t use
  * two Kraken X60s and a CANcoder, X2S/X2St a Kraken X60 drive, X44 azimuth and the WCP ThroughBore. The docs say other
- * motors fit, so wire the individual motor blocks instead if yours differ. The format panel toggles a module to the
- * PowerPole adapter board layout on both Krakens (the `-powerpole` alternates below, which aren't palette items).
+ * motors fit, so wire the individual motor blocks instead if yours differ. The palette has one block per module; the
+ * format panel toggles it to the PowerPole adapter board layout on both Krakens and turns it a quarter turn at a time
+ * (one per robot corner, text kept upright). Those alternates are built on demand (`swerveDevice`), not palette items.
  */
 interface SwerveModel {
   id: string;
@@ -284,26 +285,43 @@ const SWERVE_MODELS: SwerveModel[] = [
   { id: 'swerve-x2s', title: 'Swerve X2S', part: 'X60 + X44', steerMotor: 'Kraken X44', encoder: 'throughbore', tags: 'x2s' },
   { id: 'swerve-x2st', title: 'Swerve X2St', part: 'thin, X60 + X44', steerMotor: 'Kraken X44', encoder: 'throughbore', tags: 'x2st thin' },
 ];
-const swerve = (m: SwerveModel, powerpole: boolean) =>
-  swerveModule({
-    id: `frc-${m.id}${powerpole ? '-powerpole' : ''}`,
-    title: m.title,
-    part: m.part,
-    driveMotor: 'Kraken X60',
-    steerMotor: m.steerMotor,
-    encoder: m.encoder,
-    powerpole,
-    colors: ['#e6e6e6', '#808080'],
-    tags: `frc wcp swerve module drivetrain ${m.tags}`,
-  });
+
+/** A swerve block's id is `<model>[-powerpole][-r<quarter turns>]`, e.g. `swerve-x2i-powerpole-r2`. */
+const swerveKey = (model: string, powerpole: boolean, turn: number) => `${model}${powerpole ? '-powerpole' : ''}${turn ? `-r${turn}` : ''}`;
+const parseSwerve = (id: string) => {
+  const m = /^(swerve-[a-z0-9]+)(-powerpole)?(?:-r([123]))?$/.exec(id);
+  const model = m && SWERVE_MODELS.find((x) => x.id === m[1]);
+  return m && model ? { model, powerpole: !!m[2], turn: Number(m[3] ?? 0) as SwerveTurn } : null;
+};
+
+const swerveCache = new Map<string, DeviceItem>();
+function swerveDevice(model: SwerveModel, powerpole: boolean, turn: SwerveTurn): DeviceItem {
+  const key = swerveKey(model.id, powerpole, turn);
+  let item = swerveCache.get(key);
+  if (!item) {
+    item = swerveModule({
+      id: `frc-${key}`,
+      title: model.title,
+      part: model.part,
+      driveMotor: 'Kraken X60',
+      steerMotor: model.steerMotor,
+      encoder: model.encoder,
+      powerpole,
+      turn,
+      colors: ['#e6e6e6', '#808080'],
+      tags: `frc wcp swerve module drivetrain ${model.tags}`,
+    });
+    swerveCache.set(key, item);
+  }
+  return item;
+}
 
 export const FRC_SWERVE: PaletteSection = {
   id: 'frc-swerve',
   title: 'FRC: Swerve Modules',
   list: true,
-  items: SWERVE_MODELS.map((m) => swerve(m, false)),
+  items: SWERVE_MODELS.map((m) => swerveDevice(m, false, 0)),
 };
-const SWERVE_ADAPTER_DEVICES = SWERVE_MODELS.map((m) => swerve(m, true));
 
 /**
  * WCP PowerPole Adapter Board for the Kraken X60/X44 (docs.wcproducts.com): Anderson PowerPole power input plus
@@ -312,7 +330,7 @@ const SWERVE_ADAPTER_DEVICES = SWERVE_MODELS.map((m) => swerve(m, true));
  */
 const adapterKraken = (id: string, title: string) =>
   d({ id, title, part: 'PowerPole adapter board', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'wcp motor talon fx powerpole adapter board' });
-const ADAPTER_DEVICES = [adapterKraken('kraken-x60-powerpole', 'Kraken X60'), adapterKraken('kraken-x44-powerpole', 'Kraken X44'), ...SWERVE_ADAPTER_DEVICES];
+const ADAPTER_DEVICES = [adapterKraken('kraken-x60-powerpole', 'Kraken X60'), adapterKraken('kraken-x44-powerpole', 'Kraken X44')];
 
 /** A block that can be toggled to an alternate terminal layout, with how terminals map between the two. */
 export interface DeviceVariant {
@@ -321,6 +339,9 @@ export interface DeviceVariant {
   alternate: string;
   /** Terminal names of this layout -> the alternate's. */
   pinMap: Record<string, string>;
+  /** A two-way switch shown as a checkbox (`on` when this layout is the alternate one), or a step shown as a button. */
+  kind?: 'toggle' | 'step';
+  on?: boolean;
 }
 
 const KRAKEN_TO_ADAPTER = { 'V+': 'POWER V+', 'V-': 'POWER V-', 'CAN H': 'CAN in H', 'CAN L': 'CAN in L' };
@@ -328,23 +349,39 @@ const KRAKEN_TO_ADAPTER = { 'V+': 'POWER V+', 'V-': 'POWER V-', 'CAN H': 'CAN in
 const ADAPTER_TO_KRAKEN = { 'POWER V+': 'V+', 'POWER V-': 'V-', 'CAN in H': 'CAN H', 'CAN in L': 'CAN L', 'CAN out H': 'CAN H', 'CAN out L': 'CAN L' };
 
 export const FRC_VARIANTS: Record<string, DeviceVariant> = {
-  'kraken-x60': { label: 'PowerPole adapter', alternate: 'kraken-x60-powerpole', pinMap: KRAKEN_TO_ADAPTER },
-  'kraken-x44': { label: 'PowerPole adapter', alternate: 'kraken-x44-powerpole', pinMap: KRAKEN_TO_ADAPTER },
-  'kraken-x60-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x60', pinMap: ADAPTER_TO_KRAKEN },
-  'kraken-x44-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x44', pinMap: ADAPTER_TO_KRAKEN },
-  ...Object.fromEntries(
-    SWERVE_MODELS.flatMap((m) => [
-      [m.id, { label: 'PowerPole adapters', alternate: `${m.id}-powerpole`, pinMap: swerveToPowerpole(m.encoder) }],
-      [`${m.id}-powerpole`, { label: 'PowerPole adapters', alternate: m.id, pinMap: swerveFromPowerpole(m.encoder) }],
-    ]),
-  ),
+  'kraken-x60': { label: 'PowerPole adapter', alternate: 'kraken-x60-powerpole', pinMap: KRAKEN_TO_ADAPTER, kind: 'toggle', on: false },
+  'kraken-x44': { label: 'PowerPole adapter', alternate: 'kraken-x44-powerpole', pinMap: KRAKEN_TO_ADAPTER, kind: 'toggle', on: false },
+  'kraken-x60-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x60', pinMap: ADAPTER_TO_KRAKEN, kind: 'toggle', on: true },
+  'kraken-x44-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x44', pinMap: ADAPTER_TO_KRAKEN, kind: 'toggle', on: true },
 };
+
+/** Every alternate layout a block can be switched to: one for the Krakens, a PowerPole toggle and a quarter turn for swerve modules. */
+export function frcVariants(id: string): DeviceVariant[] {
+  if (FRC_VARIANTS[id]) return [FRC_VARIANTS[id]];
+  const swerve = parseSwerve(id);
+  if (!swerve) return [];
+  const { model, powerpole, turn } = swerve;
+  const next = swerveKey(model.id, powerpole, (turn + 1) % 4);
+  return [
+    {
+      label: 'PowerPole adapters',
+      alternate: swerveKey(model.id, !powerpole, turn),
+      pinMap: powerpole ? swerveFromPowerpole(model.encoder) : swerveToPowerpole(model.encoder),
+      kind: 'toggle',
+      on: powerpole,
+    },
+    // The same terminals, drawn a quarter turn on.
+    { label: 'Turn 90°', alternate: next, pinMap: Object.fromEntries(frcDevice(id).pins.map((p) => [p.name, p.name])), kind: 'step' },
+  ];
+}
 
 export const FRC_PALETTES = [FRC_POWER, FRC_MOTORS, FRC_SWERVE, FRC_PNEUMATICS];
 
 /** A block by its short id (`pdh`, `spark-max`, ...), with its terminal layout. */
 export function frcDevice(id: string): DeviceItem {
   const item = [...FRC_PALETTES.flatMap((s) => s.items), ...ADAPTER_DEVICES].find((i) => i.id === `frc-${id}`);
-  if (!item || !('pins' in item)) throw new Error(`Unknown FRC device: ${id}`);
-  return item as DeviceItem;
+  if (item && 'pins' in item) return item as DeviceItem;
+  const swerve = parseSwerve(id);
+  if (swerve) return swerveDevice(swerve.model, swerve.powerpole, swerve.turn);
+  throw new Error(`Unknown FRC device: ${id}`);
 }
