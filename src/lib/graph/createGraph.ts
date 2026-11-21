@@ -3,6 +3,7 @@ import {
   Client,
   EdgeHandlerConfig,
   HandleConfig,
+  VertexHandler,
   VertexHandlerConfig,
   ConnectionConstraint,
   Geometry,
@@ -35,7 +36,15 @@ export const MAX_SCALE = 8;
  * the light and the dark canvas.
  */
 const SELECTION_BLUE = '#1a73e8';
+/**
+ * How far above a shape its rotation handle sits. The hover arrows (HoverArrows) occupy 10-32px above the shape, so
+ * the default 16px put the handle underneath the north arrow, which then caught the click instead.
+ */
+const ROTATION_HANDLE_GAP = 52;
 function configureSelectionStyle(): void {
+  VertexHandler.prototype.getRotationHandlePosition = function (this: VertexHandler) {
+    return new Point(this.bounds.x + this.bounds.width / 2, this.bounds.y - ROTATION_HANDLE_GAP);
+  };
   Object.assign(VertexHandlerConfig, {
     selectionColor: SELECTION_BLUE,
     selectionStrokeWidth: 2,
