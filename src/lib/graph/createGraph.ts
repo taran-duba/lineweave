@@ -3,6 +3,7 @@ import {
   Client,
   EdgeHandlerConfig,
   HandleConfig,
+  VertexHandler,
   VertexHandlerConfig,
   ConnectionConstraint,
   Geometry,
@@ -20,8 +21,9 @@ import {
 import { toCellStyle } from '@/lib/drawio/style';
 import { DEFAULT_EDGE_STYLE } from './palette';
 import { installChildLayouts } from './childLayouts';
-import { installDarkCanvas } from './darkCanvas';
+import { installDarkCanvas, LIGHT as DARK_CANVAS_INK } from './darkCanvas';
 import { installLineJumps } from './lineJumps';
+import { getTheme } from '@/lib/theme';
 import { schematicConnectorStyle } from './wires';
 import { applyDrawioStylesheet, registerDrawioShapes } from './shapes';
 
@@ -35,7 +37,15 @@ export const MAX_SCALE = 8;
  * the light and the dark canvas.
  */
 const SELECTION_BLUE = '#1a73e8';
+/**
+ * How far above a shape its rotation handle sits. The hover arrows (HoverArrows) occupy 10-32px above the shape, so
+ * the default 16px put the handle underneath the north arrow, which then caught the click instead.
+ */
+const ROTATION_HANDLE_GAP = 52;
 function configureSelectionStyle(): void {
+  VertexHandler.prototype.getRotationHandlePosition = function (this: VertexHandler) {
+    return new Point(this.bounds.x + this.bounds.width / 2, this.bounds.y - ROTATION_HANDLE_GAP);
+  };
   Object.assign(VertexHandlerConfig, {
     selectionColor: SELECTION_BLUE,
     selectionStrokeWidth: 2,
@@ -152,7 +162,16 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
   graph.isCellDeletable = (cell) => baseDeletable(cell) && !lockedUp(cell);
 
   const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
-  if (selectionHandler) selectionHandler.guidesEnabled = true;
+  if (selectionHandler) {
+    selectionHandler.guidesEnabled = true;
+    // The dashed outline that follows shapes while they are dragged is black by default, which vanishes on the dark
+    // canvas. It is built at the start of each drag, so reading the theme then keeps it current.
+    Object.defineProperty(selectionHandler, 'previewColor', {
+      get: () => (getTheme() === 'dark' ? DARK_CANVAS_INK : 'black'),
+      set: () => {},
+      configurable: true,
+    });
+  }
 
   const connection = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
   if (connection) {

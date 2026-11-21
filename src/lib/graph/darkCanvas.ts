@@ -9,7 +9,7 @@ import { getTheme, subscribeTheme } from '@/lib/theme';
  * their black text and outlines, which stay readable on their fill.
  */
 
-const LIGHT = '#dedede';
+export const LIGHT = '#dedede';
 const CANVAS = '#000000';
 const STROKE_ONLY_SHAPES = new Set(['line', 'umlActor']);
 
@@ -25,14 +25,17 @@ export function adaptStyleForDark(style: CellStateStyle, cell: Cell): CellStateS
     if (isBlack(s.fontColor)) s.fontColor = LIGHT;
     if (isWhite(s.labelBackgroundColor)) s.labelBackgroundColor = CANVAS;
   } else if (cell.isVertex()) {
-    const unfilled = isNone(s.fillColor);
+    // maxGraph drops `none` when it resolves a style, so what the cell itself says counts too.
+    const own = (cell.style ?? {}) as Record<string, unknown>;
+    const unfilled = isNone(s.fillColor) || isNone(own.fillColor);
+    const unstroked = isNone(s.strokeColor) || isNone(own.strokeColor);
     // Labels drawn outside the shape sit directly on the canvas.
     const labelOutside =
       ['top', 'bottom'].includes(norm(s.verticalLabelPosition)) || ['left', 'right'].includes(norm(s.labelPosition));
     // Schematic symbols are line art: white paper fill becomes canvas, so the symbol reads as light lines.
     const lineArt = norm(s.shape).startsWith('mxgraph.electrical.') || norm(s.fillColor) === 'strokecolor';
     if (lineArt && isBlack(s.strokeColor) && (isWhite(s.fillColor) || s.fillColor == null)) s.fillColor = CANVAS;
-    if ((unfilled || lineArt || STROKE_ONLY_SHAPES.has(norm(s.shape))) && isBlack(s.strokeColor)) s.strokeColor = LIGHT;
+    if ((unfilled || lineArt || STROKE_ONLY_SHAPES.has(norm(s.shape))) && isBlack(s.strokeColor) && !unstroked) s.strokeColor = LIGHT;
     if ((unfilled || labelOutside) && isBlack(s.fontColor)) s.fontColor = LIGHT;
   }
   return s as CellStateStyle;

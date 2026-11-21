@@ -1,12 +1,16 @@
 import type { Cell, Graph } from '@maxgraph/core';
 import { toCellStyle } from '@/lib/drawio/style';
-import { FRC_VARIANTS, frcDevice } from './palettes/frc';
+import { frcDevice, frcVariants } from './palettes/frc';
 
-/** The device block id recorded in a cell's style (`frc-` prefix dropped), if it has a variant to toggle to. */
-export function variantOf(style: Record<string, unknown>) {
+/** The alternate layouts a cell's device block can switch to (the `frc-` prefix dropped from its id), if any. */
+export function variantsOf(style: Record<string, unknown>) {
   const id = typeof style.device === 'string' ? style.device.replace(/^frc-/, '') : '';
-  const variant = FRC_VARIANTS[id];
-  return variant ? { id, ...variant } : null;
+  return frcVariants(id).map((variant) => ({ id, ...variant }));
+}
+
+/** The first alternate layout, if the block has one. */
+export function variantOf(style: Record<string, unknown>) {
+  return variantsOf(style)[0] ?? null;
 }
 
 const same = (a: unknown, b: number) => Math.abs(Number(a) - b) < 0.001;
@@ -15,8 +19,8 @@ const same = (a: unknown, b: number) => Math.abs(Number(a) - b) < 0.001;
  * Swaps a device block to its alternate terminal layout (new labels, connection points and size, kept centered)
  * and moves wires attached to it onto the matching terminals. One undoable change.
  */
-export function swapDevice(graph: Graph, cell: Cell, style: Record<string, unknown>): void {
-  const current = variantOf(style);
+export function swapDevice(graph: Graph, cell: Cell, style: Record<string, unknown>, which = 0): void {
+  const current = variantsOf(style)[which];
   if (!current || !cell.geometry) return;
   const from = frcDevice(current.id);
   const to = frcDevice(current.alternate);
@@ -28,9 +32,11 @@ export function swapDevice(graph: Graph, cell: Cell, style: Record<string, unkno
     graph.setCellStyles('device' as never, target.device as never, [cell]);
     const g = cell.geometry!.clone();
     const centerX = g.x + g.width / 2;
+    const centerY = g.y + g.height / 2;
     g.width = to.width;
     g.height = to.height;
     g.x = Math.round((centerX - to.width / 2) / 10) * 10;
+    g.y = Math.round((centerY - to.height / 2) / 10) * 10;
     model.setGeometry(cell, g);
     for (const edge of cell.edges) {
       const ends = [
