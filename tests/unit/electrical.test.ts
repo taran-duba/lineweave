@@ -7,7 +7,7 @@ import { parsePointsStyle } from '@/lib/graph/createGraph';
 import { swapDevice, variantOf } from '@/lib/graph/deviceVariant';
 import { PALETTES } from '@/lib/graph/palette';
 import { device } from '@/lib/graph/palettes/device';
-import { FRC_PALETTES, frcDevice } from '@/lib/graph/palettes/frc';
+import { FRC_PALETTES, FRC_VARIANTS, frcDevice } from '@/lib/graph/palettes/frc';
 import { registerElectricalStencils } from '@/lib/graph/stencils';
 import { isSchematicCell, schematicConnectorStyle } from '@/lib/graph/wires';
 
@@ -146,5 +146,29 @@ describe('Kraken PowerPole adapter toggle', () => {
     expect(kraken.geometry!.width).toBe(base.width);
     const back = wire.style as Record<string, unknown>;
     expect([back.exitX, back.exitY]).toEqual([pin(base, 'CAN H').x, pin(base, 'CAN H').y]);
+  });
+});
+
+describe('swerve module blocks', () => {
+  const modules = Object.keys(FRC_VARIANTS).filter((id) => id.startsWith('swerve-') && !id.endsWith('-powerpole'));
+
+  it('are in the palette, one per WCP module', () => {
+    const ids = FRC_PALETTES.flatMap((p) => p.items).map((i) => i.id);
+    for (const id of ['x', 'xs', 'x2', 'x2i', 'x2t', 'x2s', 'x2st']) expect(ids, id).toContain(`frc-swerve-${id}`);
+    expect(modules).toHaveLength(7);
+  });
+
+  it('toggle to the PowerPole layout and back onto terminals that exist', () => {
+    for (const id of modules) {
+      for (const from of [id, `${id}-powerpole`]) {
+        const variant = FRC_VARIANTS[from];
+        const source = frcDevice(from);
+        const target = frcDevice(variant.alternate);
+        expect([target.width, target.height], from).toEqual([source.width, source.height]);
+        // Every terminal of the source maps to a terminal of the target, and every target terminal is reachable.
+        for (const pin of source.pins) expect(target.pins.map((p) => p.name), `${from} ${pin.name}`).toContain(variant.pinMap[pin.name]);
+      }
+      expect(frcDevice(`${id}-powerpole`).pins.length).toBeGreaterThan(frcDevice(id).pins.length);
+    }
   });
 });

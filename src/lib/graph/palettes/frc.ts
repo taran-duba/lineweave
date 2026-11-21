@@ -1,7 +1,7 @@
 import type { PaletteSection } from '../palette';
 import { device, type DeviceItem, type DeviceSpec, type PinGroup } from './device';
 import { symbol } from './electrical';
-import { swerveModule } from './swerve';
+import { swerveFromPowerpole, swerveModule, swerveToPowerpole } from './swerve';
 
 /**
  * FRC control system parts as wiring-diagram blocks, with each terminal a
@@ -261,28 +261,49 @@ export const FRC_PNEUMATICS: PaletteSection = {
 };
 
 /**
- * WCP swerve modules as triangular bellypan-plate blocks (see `swerve.ts`): encoder at the apex, drive motor bottom left, azimuth
- * motor bottom right. Motor terminals follow the Kraken's rear cap (- H L + left to right). Defaults per
- * docs.wcproducts.com: X/XS/X2/X2i/X2t use Krakens and a CANcoder, X2S/X2St a Kraken X60 drive, X44 azimuth and the
- * WCP ThroughBore. The docs say other motors fit, so wire the individual motor blocks instead if yours differ.
+ * WCP swerve modules as their top cover (see `swerve.ts`): the drive and azimuth Krakens as circles on an angled plate
+ * with a small encoder circle, each keeping its real terminals. Defaults per docs.wcproducts.com: X/XS/X2/X2i/X2t use
+ * two Kraken X60s and a CANcoder, X2S/X2St a Kraken X60 drive, X44 azimuth and the WCP ThroughBore. The docs say other
+ * motors fit, so wire the individual motor blocks instead if yours differ. The format panel toggles a module to the
+ * PowerPole adapter board layout on both Krakens (the `-powerpole` alternates below, which aren't palette items).
  */
-const swerve = (id: string, title: string, part: string, encoder: 'cancoder' | 'throughbore', tags: string) =>
-  swerveModule({ id: `frc-${id}`, title, part, encoder, colors: DRIVE, tags: `frc wcp swerve module drivetrain ${tags}` });
+interface SwerveModel {
+  id: string;
+  title: string;
+  part: string;
+  steerMotor: string;
+  encoder: 'cancoder' | 'throughbore';
+  tags: string;
+}
+const SWERVE_MODELS: SwerveModel[] = [
+  { id: 'swerve-x', title: 'Swerve X', part: 'Kraken X60 x2', steerMotor: 'Kraken X60', encoder: 'cancoder', tags: 'x' },
+  { id: 'swerve-xs', title: 'Swerve XS', part: 'Kraken X60 x2', steerMotor: 'Kraken X60', encoder: 'cancoder', tags: 'xs' },
+  { id: 'swerve-x2', title: 'Swerve X2', part: 'standard', steerMotor: 'Kraken X60', encoder: 'cancoder', tags: 'x2' },
+  { id: 'swerve-x2i', title: 'Swerve X2i', part: 'inverted', steerMotor: 'Kraken X60', encoder: 'cancoder', tags: 'x2i inverted' },
+  { id: 'swerve-x2t', title: 'Swerve X2t', part: 'thin', steerMotor: 'Kraken X60', encoder: 'cancoder', tags: 'x2t thin' },
+  { id: 'swerve-x2s', title: 'Swerve X2S', part: 'X60 + X44', steerMotor: 'Kraken X44', encoder: 'throughbore', tags: 'x2s' },
+  { id: 'swerve-x2st', title: 'Swerve X2St', part: 'thin, X60 + X44', steerMotor: 'Kraken X44', encoder: 'throughbore', tags: 'x2st thin' },
+];
+const swerve = (m: SwerveModel, powerpole: boolean) =>
+  swerveModule({
+    id: `frc-${m.id}${powerpole ? '-powerpole' : ''}`,
+    title: m.title,
+    part: m.part,
+    driveMotor: 'Kraken X60',
+    steerMotor: m.steerMotor,
+    encoder: m.encoder,
+    powerpole,
+    colors: ['#e6e6e6', '#808080'],
+    tags: `frc wcp swerve module drivetrain ${m.tags}`,
+  });
 
 export const FRC_SWERVE: PaletteSection = {
   id: 'frc-swerve',
   title: 'FRC: Swerve Modules',
   list: true,
-  items: [
-    swerve('swerve-x', 'Swerve X', 'Kraken X60 x2', 'cancoder', 'x'),
-    swerve('swerve-xs', 'Swerve XS', 'Kraken X60 x2', 'cancoder', 'xs'),
-    swerve('swerve-x2', 'Swerve X2', 'standard, Kraken X60 x2', 'cancoder', 'x2'),
-    swerve('swerve-x2i', 'Swerve X2i', 'inverted, Kraken X60 x2', 'cancoder', 'x2i inverted'),
-    swerve('swerve-x2t', 'Swerve X2t', 'thin, Kraken X60 x2', 'cancoder', 'x2t thin'),
-    swerve('swerve-x2s', 'Swerve X2S', 'Kraken X60 + X44', 'throughbore', 'x2s'),
-    swerve('swerve-x2st', 'Swerve X2St', 'thin, Kraken X60 + X44', 'throughbore', 'x2st thin'),
-  ],
+  items: SWERVE_MODELS.map((m) => swerve(m, false)),
 };
+const SWERVE_ADAPTER_DEVICES = SWERVE_MODELS.map((m) => swerve(m, true));
 
 /**
  * WCP PowerPole Adapter Board for the Kraken X60/X44 (docs.wcproducts.com): Anderson PowerPole power input plus
@@ -291,7 +312,7 @@ export const FRC_SWERVE: PaletteSection = {
  */
 const adapterKraken = (id: string, title: string) =>
   d({ id, title, part: 'PowerPole adapter board', colors: MOTOR, pins: { bottom: [group('POWER', ['V+', 'V-']), ...canInOut()] }, tags: 'wcp motor talon fx powerpole adapter board' });
-const ADAPTER_DEVICES = [adapterKraken('kraken-x60-powerpole', 'Kraken X60'), adapterKraken('kraken-x44-powerpole', 'Kraken X44')];
+const ADAPTER_DEVICES = [adapterKraken('kraken-x60-powerpole', 'Kraken X60'), adapterKraken('kraken-x44-powerpole', 'Kraken X44'), ...SWERVE_ADAPTER_DEVICES];
 
 /** A block that can be toggled to an alternate terminal layout, with how terminals map between the two. */
 export interface DeviceVariant {
@@ -311,6 +332,12 @@ export const FRC_VARIANTS: Record<string, DeviceVariant> = {
   'kraken-x44': { label: 'PowerPole adapter', alternate: 'kraken-x44-powerpole', pinMap: KRAKEN_TO_ADAPTER },
   'kraken-x60-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x60', pinMap: ADAPTER_TO_KRAKEN },
   'kraken-x44-powerpole': { label: 'PowerPole adapter', alternate: 'kraken-x44', pinMap: ADAPTER_TO_KRAKEN },
+  ...Object.fromEntries(
+    SWERVE_MODELS.flatMap((m) => [
+      [m.id, { label: 'PowerPole adapters', alternate: `${m.id}-powerpole`, pinMap: swerveToPowerpole(m.encoder) }],
+      [`${m.id}-powerpole`, { label: 'PowerPole adapters', alternate: m.id, pinMap: swerveFromPowerpole(m.encoder) }],
+    ]),
+  ),
 };
 
 export const FRC_PALETTES = [FRC_POWER, FRC_MOTORS, FRC_SWERVE, FRC_PNEUMATICS];
