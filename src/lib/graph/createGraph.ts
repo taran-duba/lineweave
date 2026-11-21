@@ -21,8 +21,9 @@ import {
 import { toCellStyle } from '@/lib/drawio/style';
 import { DEFAULT_EDGE_STYLE } from './palette';
 import { installChildLayouts } from './childLayouts';
-import { installDarkCanvas } from './darkCanvas';
+import { installDarkCanvas, LIGHT as DARK_CANVAS_INK } from './darkCanvas';
 import { installLineJumps } from './lineJumps';
+import { getTheme } from '@/lib/theme';
 import { schematicConnectorStyle } from './wires';
 import { applyDrawioStylesheet, registerDrawioShapes } from './shapes';
 
@@ -161,7 +162,16 @@ export function createGraph(container: HTMLElement): { graph: Graph; destroy: ()
   graph.isCellDeletable = (cell) => baseDeletable(cell) && !lockedUp(cell);
 
   const selectionHandler = graph.getPlugin<SelectionHandler>('SelectionHandler');
-  if (selectionHandler) selectionHandler.guidesEnabled = true;
+  if (selectionHandler) {
+    selectionHandler.guidesEnabled = true;
+    // The dashed outline that follows shapes while they are dragged is black by default, which vanishes on the dark
+    // canvas. It is built at the start of each drag, so reading the theme then keeps it current.
+    Object.defineProperty(selectionHandler, 'previewColor', {
+      get: () => (getTheme() === 'dark' ? DARK_CANVAS_INK : 'black'),
+      set: () => {},
+      configurable: true,
+    });
+  }
 
   const connection = graph.getPlugin<ConnectionHandler>('ConnectionHandler');
   if (connection) {

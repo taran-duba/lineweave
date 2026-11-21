@@ -9,7 +9,7 @@ import { getTheme, subscribeTheme } from '@/lib/theme';
  * their black text and outlines, which stay readable on their fill.
  */
 
-const LIGHT = '#dedede';
+export const LIGHT = '#dedede';
 const CANVAS = '#000000';
 const STROKE_ONLY_SHAPES = new Set(['line', 'umlActor']);
 

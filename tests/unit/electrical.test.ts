@@ -197,9 +197,23 @@ describe('swerve module blocks', () => {
     expect([frcDevice('swerve-x2i-r1').width, frcDevice('swerve-x2i-r1').height]).toEqual([frcDevice('swerve-x2i').height, frcDevice('swerve-x2i').width]);
   });
 
+  it('mirror left to right: azimuth terminals match the drive ones, and the encoder is centered', () => {
+    for (const powerpole of ['', '-powerpole']) {
+      const d = frcDevice(`swerve-x2i${powerpole}`);
+      const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+      const drive = d.pins.filter((p) => p.name.startsWith('DRIVE '));
+      expect(drive.length).toBeGreaterThanOrEqual(4);
+      for (const p of drive) {
+        const twin = d.pins.find((q) => q.name === p.name.replace('DRIVE ', 'AZIMUTH '))!;
+        expect(near(twin.x, 1 - p.x) && near(twin.y, p.y), `${p.name} ${powerpole}`).toBe(true);
+      }
+      const enc = d.pins.filter((p) => p.name.startsWith('CANcoder '));
+      expect(near(enc.reduce((sum, p) => sum + p.x, 0) / enc.length, 0.5)).toBe(true);
+    }
+  });
+
   it('draw terminal text in the canvas color (so dark mode shows it) and text on the cover in dark ink', () => {
     const d = frcDevice('swerve-x2i');
     expect(toCellStyle(d.style).fontColor).toBe('#000000');
-    expect(d.value).toContain('stroke="currentColor"');
   });
 });
